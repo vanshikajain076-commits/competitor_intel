@@ -1,7 +1,7 @@
 app_name = "competitor_intel"
 app_title = "Competitor Intel"
 app_publisher = "SMM"
-app_description = "Competitor Intelligence tracker dashboard"
+app_description = "acker dashboard"
 app_email = "vanshikajain076@gmail.com"
 app_license = "mit"
 

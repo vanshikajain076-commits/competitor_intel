@@ -3,7 +3,7 @@ name = "competitor_intel"
 authors = [
     { name = "SMM", email = "vanshikajain076@gmail.com"}
 ]
-description = "Competitor Intelligence tracker dashboard"
+description = "acker dashboard"
 requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]

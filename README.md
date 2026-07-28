@@ -1,6 +1,6 @@
 ### Competitor Intel
 
-Competitor Intelligence tracker dashboard
+acker dashboard
 
 ### Installation
 
