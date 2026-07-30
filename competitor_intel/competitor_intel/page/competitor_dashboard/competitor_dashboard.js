@@ -6,12 +6,13 @@ frappe.pages['competitor-dashboard'].on_page_load =  frappe.pages['competitor-da
 	});
 
 	page.main.html(`
-		<div style="margin-bottom: 20px;">
-			<label style="font-weight: 600; margin-right: 8px;">Competitor Analysis:</label>
-			<select id="ci-analysis-select" style="padding: 6px 10px; min-width: 260px;"></select>
-		</div>
-		<div id="ci-dashboard">Loading...</div>
-	`);
+    <div style="margin-bottom: 20px;">
+        <label style="font-weight: 600; margin-right: 8px;">Competitor Analysis:</label>
+        <select id="ci-analysis-select" style="padding: 6px 10px; min-width: 260px;"></select>
+    </div>
+    <div id="ci-dashboard">Loading...</div>
+    <div id="ci-charts" style="margin-top:24px;"></div>
+`);
 
 	page.set_primary_action('Generate AI Insights', function() {
 		let selected = document.getElementById('ci-analysis-select').value;
@@ -120,6 +121,49 @@ function render_dashboard(data) {
 	`;
 
 	document.getElementById('ci-dashboard').innerHTML = html;
+	render_charts(data);
+}
+
+
+function render_charts(data) {
+	let container = document.getElementById('ci-charts');
+	container.innerHTML = `
+		<h4>Monthly Visits Comparison</h4>
+		<div id="ci-visits-chart" style="margin-bottom:32px;"></div>
+		<h4>Traffic Sources by Competitor</h4>
+		<div id="ci-source-charts" style="display:flex; flex-wrap:wrap; gap:24px;"></div>
+	`;
+
+	// Bar chart: monthly visits across all competitors
+	new frappe.Chart("#ci-visits-chart", {
+		data: {
+			labels: data.map(c => c.competitor_name),
+			datasets: [{ values: data.map(c => c.monthly_visits) }]
+		},
+		type: 'bar',
+		height: 220,
+		colors: ['#5e64ff']
+	});
+
+	// One donut chart per competitor: traffic source split
+	data.forEach(c => {
+		if (!c.traffic_sources || !c.traffic_sources.length) return;
+
+		let wrap = document.createElement('div');
+		wrap.style.minWidth = '360px';
+		wrap.innerHTML = `<p style="text-align:center; font-weight:600;">${c.competitor_name}</p>
+			<div id="ci-donut-${c.name}"></div>`;
+		document.getElementById('ci-source-charts').appendChild(wrap);
+
+		new frappe.Chart(`#ci-donut-${c.name}`, {
+			data: {
+				labels: c.traffic_sources.map(t => t.source_type),
+				datasets: [{ values: c.traffic_sources.map(t => t.percentage) }]
+			},
+			type: 'donut',
+			height: 200
+		});
+	});
 }
 
 
