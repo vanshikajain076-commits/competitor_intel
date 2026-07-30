@@ -13,6 +13,25 @@ frappe.pages['competitor-dashboard'].on_page_load =  frappe.pages['competitor-da
 		<div id="ci-dashboard">Loading...</div>
 	`);
 
+	page.set_primary_action('Generate AI Insights', function() {
+		let selected = document.getElementById('ci-analysis-select').value;
+		if (!selected) {
+			frappe.msgprint('Select an analysis first.');
+			return;
+		}
+		frappe.show_alert('Generating insights... this may take a few seconds.');
+		frappe.call({
+			method: "competitor_intel.competitor_intel.page.competitor_dashboard.competitor_dashboard.generate_ai_insights",
+			args: { analysis: selected },
+			callback: function(r) {
+				render_ai_insights(r.message);
+			},
+			error: function(r) {
+				frappe.msgprint('Error generating insights. Check the console.');
+			}
+		});
+	}, 'octicon octicon-zap');
+
 	// Fetch all existing analyses to populate the dropdown
 	frappe.call({
 		method: "frappe.client.get_list",
@@ -101,4 +120,27 @@ function render_dashboard(data) {
 	`;
 
 	document.getElementById('ci-dashboard').innerHTML = html;
+}
+
+
+function render_ai_insights(insight) {
+	let existing = document.getElementById('ci-ai-insights');
+	if (existing) existing.remove();
+
+	let color = insight.threat_level === 'High' ? '#d13438' :
+	            insight.threat_level === 'Medium' ? '#e8a33d' : '#29a745';
+
+	let html = `
+		<div id="ci-ai-insights" style="margin-top:24px; border:1px solid #d1d8dd; border-radius:8px; padding:16px;">
+			<h4>AI Competitive Insights
+				<span style="background:${color}; color:white; font-size:11px; padding:2px 8px; border-radius:10px; margin-left:8px;">
+					${insight.threat_level} THREAT
+				</span>
+			</h4>
+			<p><strong>Why:</strong> ${insight.threat_explanation}</p>
+			<p><strong>Market Gap Opportunities:</strong> ${insight.market_gap_opportunities}</p>
+			<p><strong>Recommended Positioning:</strong> ${insight.recommended_positioning}</p>
+		</div>
+	`;
+	document.getElementById('ci-dashboard').insertAdjacentHTML('afterend', html);
 }

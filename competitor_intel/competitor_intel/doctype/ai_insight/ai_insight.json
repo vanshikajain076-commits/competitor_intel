@@ -1,0 +1,68 @@
+{
+ "doctype": "DocType",
+ "name": "AI Insight",
+ "module": "Competitor Intel",
+ "custom": 0,
+ "istable": 0,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "analysis",
+  "generated_on",
+  "threat_level",
+  "threat_explanation",
+  "market_gap_opportunities",
+  "recommended_positioning"
+ ],
+ "fields": [
+  {
+   "fieldname": "analysis",
+   "fieldtype": "Link",
+   "label": "Competitor Analysis",
+   "options": "Competitor Analysis",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "generated_on",
+   "fieldtype": "Datetime",
+   "label": "Generated On",
+   "default": "now",
+   "read_only": 1
+  },
+  {
+   "fieldname": "threat_level",
+   "fieldtype": "Select",
+   "label": "Overall Threat Level",
+   "options": "High\nMedium\nLow",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "threat_explanation",
+   "fieldtype": "Small Text",
+   "label": "Threat Explanation"
+  },
+  {
+   "fieldname": "market_gap_opportunities",
+   "fieldtype": "Small Text",
+   "label": "Market Gap Opportunities"
+  },
+  {
+   "fieldname": "recommended_positioning",
+   "fieldtype": "Small Text",
+   "label": "Recommended Positioning"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1
+  }
+ ]
+}
