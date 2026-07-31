@@ -26,6 +26,48 @@ def get_dashboard_data(analysis=None):
 
 	return snapshots
 
+from pytrends.request import TrendReq
+
+
+@frappe.whitelist()
+def get_search_trends(analysis):
+	snapshots = frappe.get_all(
+		"Competitor Snapshot",
+		filters={"analysis": analysis},
+		fields=["competitor_name"]
+	)
+
+	# Google Trends allows a maximum of 5 keywords per comparison
+	keywords = [s["competitor_name"] for s in snapshots][:5]
+
+	if not keywords:
+		return {"dates": [], "series": {}}
+
+	pytrends = TrendReq(hl='en-US', tz=360)
+	pytrends.build_payload(keywords, timeframe='today 3-m')
+	df = pytrends.interest_over_time()
+
+	if df.empty:
+		return {"dates": [], "series": {}}
+
+	df = df.drop(columns=["isPartial"], errors="ignore")
+
+	result = {
+		"dates": [d.strftime("%Y-%m-%d") for d in df.index],
+		"series": {col: df[col].tolist() for col in df.columns}
+	}
+	return result
+
+@frappe.whitelist()
+def get_ai_insight(analysis):
+	existing = frappe.get_all(
+		"AI Insight",
+		filters={"analysis": analysis},
+		fields=["threat_level", "threat_explanation", "market_gap_opportunities", "recommended_positioning"],
+		limit_page_length=1
+	)
+	return existing[0] if existing else None
+
 import json
 import requests
 

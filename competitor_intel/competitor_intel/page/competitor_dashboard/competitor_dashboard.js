@@ -14,13 +14,16 @@ frappe.pages['competitor-dashboard'].on_page_load =  frappe.pages['competitor-da
     <div id="ci-charts" style="margin-top:24px;"></div>
 `);
 
-	page.set_primary_action('Generate AI Insights', function() {
+	let generate_btn = page.set_primary_action('Generate AI Insights', function() {
 		let selected = document.getElementById('ci-analysis-select').value;
 		if (!selected) {
 			frappe.msgprint('Select an analysis first.');
 			return;
 		}
+
+		generate_btn.prop('disabled', true).text('Generating...');
 		frappe.show_alert('Generating insights... this may take a few seconds.');
+
 		frappe.call({
 			method: "competitor_intel.competitor_intel.page.competitor_dashboard.competitor_dashboard.generate_ai_insights",
 			args: { analysis: selected },
@@ -28,7 +31,10 @@ frappe.pages['competitor-dashboard'].on_page_load =  frappe.pages['competitor-da
 				render_ai_insights(r.message);
 			},
 			error: function(r) {
-				frappe.msgprint('Error generating insights. Check the console.');
+				frappe.msgprint('Error generating insights. Check the browser console for details.');
+			},
+			always: function() {
+				generate_btn.prop('disabled', false).text('Generate AI Insights');
 			}
 		});
 	}, 'octicon octicon-zap');
@@ -64,6 +70,10 @@ frappe.pages['competitor-dashboard'].on_page_load =  frappe.pages['competitor-da
 
 function load_dashboard(analysis) {
 	document.getElementById('ci-dashboard').innerHTML = 'Loading...';
+
+	let existing_insight = document.getElementById('ci-ai-insights');
+	if (existing_insight) existing_insight.remove();
+
 	frappe.call({
 		method: "competitor_intel.competitor_intel.page.competitor_dashboard.competitor_dashboard.get_dashboard_data",
 		args: { analysis: analysis },
@@ -71,7 +81,18 @@ function load_dashboard(analysis) {
 			render_dashboard(r.message);
 		}
 	});
+
+	frappe.call({
+		method: "competitor_intel.competitor_intel.page.competitor_dashboard.competitor_dashboard.get_ai_insight",
+		args: { analysis: analysis },
+		callback: function(r) {
+			if (r.message) {
+				render_ai_insights(r.message);
+			}
+		}
+	});
 }
+
 function render_dashboard(data) {
 	let cards_html = data.map(c => `
 		<div class="ci-card">
@@ -167,6 +188,8 @@ function render_charts(data) {
 }
 
 
+
+
 function render_ai_insights(insight) {
 	let existing = document.getElementById('ci-ai-insights');
 	if (existing) existing.remove();
@@ -188,3 +211,4 @@ function render_ai_insights(insight) {
 	`;
 	document.getElementById('ci-dashboard').insertAdjacentHTML('afterend', html);
 }
+
