@@ -1,4 +1,4 @@
-frappe.pages['competitor-dashboard'].on_page_load =  frappe.pages['competitor-dashboard'].on_page_load = function(wrapper) {
+frappe.pages['competitor-dashboard'].on_page_load = function(wrapper) {
 	var page = frappe.ui.make_app_page({
 		parent: wrapper,
 		title: 'Competitor Dashboard',
@@ -6,13 +6,14 @@ frappe.pages['competitor-dashboard'].on_page_load =  frappe.pages['competitor-da
 	});
 
 	page.main.html(`
-    <div style="margin-bottom: 20px;">
-        <label style="font-weight: 600; margin-right: 8px;">Competitor Analysis:</label>
-        <select id="ci-analysis-select" style="padding: 6px 10px; min-width: 260px;"></select>
-    </div>
-    <div id="ci-dashboard">Loading...</div>
-    <div id="ci-charts" style="margin-top:24px;"></div>
-`);
+		<div style="margin-bottom: 20px;">
+			<label style="font-weight: 600; margin-right: 8px;">Competitor Analysis:</label>
+			<select id="ci-analysis-select" style="padding: 6px 10px; min-width: 260px;"></select>
+		</div>
+		<div id="ci-dashboard">Loading...</div>
+		<div id="ci-charts" style="margin-top:24px;"></div>
+		<div id="ci-trends-chart" style="margin-top:32px;"></div>
+	`);
 
 	let generate_btn = page.set_primary_action('Generate AI Insights', function() {
 		let selected = document.getElementById('ci-analysis-select').value;
@@ -39,7 +40,6 @@ frappe.pages['competitor-dashboard'].on_page_load =  frappe.pages['competitor-da
 		});
 	}, 'octicon octicon-zap');
 
-	// Fetch all existing analyses to populate the dropdown
 	frappe.call({
 		method: "frappe.client.get_list",
 		args: {
@@ -60,7 +60,6 @@ frappe.pages['competitor-dashboard'].on_page_load =  frappe.pages['competitor-da
 		}
 	});
 
-	// Reload dashboard whenever the dropdown changes
 	document.addEventListener('change', function(e) {
 		if (e.target && e.target.id === 'ci-analysis-select') {
 			load_dashboard(e.target.value);
@@ -91,6 +90,8 @@ function load_dashboard(analysis) {
 			}
 		}
 	});
+
+	render_search_trends(analysis);
 }
 
 function render_dashboard(data) {
@@ -145,7 +146,6 @@ function render_dashboard(data) {
 	render_charts(data);
 }
 
-
 function render_charts(data) {
 	let container = document.getElementById('ci-charts');
 	container.innerHTML = `
@@ -155,7 +155,6 @@ function render_charts(data) {
 		<div id="ci-source-charts" style="display:flex; flex-wrap:wrap; gap:24px;"></div>
 	`;
 
-	// Bar chart: monthly visits across all competitors
 	new frappe.Chart("#ci-visits-chart", {
 		data: {
 			labels: data.map(c => c.competitor_name),
@@ -166,12 +165,11 @@ function render_charts(data) {
 		colors: ['#5e64ff']
 	});
 
-	// One donut chart per competitor: traffic source split
 	data.forEach(c => {
 		if (!c.traffic_sources || !c.traffic_sources.length) return;
 
 		let wrap = document.createElement('div');
-		wrap.style.minWidth = '360px';
+		wrap.style.minWidth = '260px';
 		wrap.innerHTML = `<p style="text-align:center; font-weight:600;">${c.competitor_name}</p>
 			<div id="ci-donut-${c.name}"></div>`;
 		document.getElementById('ci-source-charts').appendChild(wrap);
@@ -187,8 +185,42 @@ function render_charts(data) {
 	});
 }
 
+function render_search_trends(analysis) {
+	let container = document.getElementById('ci-trends-chart');
+	container.innerHTML = '<h4>Search Interest Trend (last 3 months)</h4><div id="ci-trends-inner">Loading trends...</div>';
 
+	frappe.call({
+		method: "competitor_intel.competitor_intel.page.competitor_dashboard.competitor_dashboard.get_search_trends",
+		args: { analysis: analysis },
+		callback: function(r) {
+			let data = r.message;
+			let inner = document.getElementById('ci-trends-inner');
 
+			if (!data || !data.dates || !data.dates.length) {
+				inner.innerHTML = '<p style="color:#888;">No trend data available.</p>';
+				return;
+			}
+
+			inner.innerHTML = '';
+
+			let datasets = Object.keys(data.series).map(name => ({
+				name: name,
+				values: data.series[name]
+			}));
+
+			new frappe.Chart("#ci-trends-inner", {
+				data: {
+					labels: data.dates,
+					datasets: datasets
+				},
+				type: 'line',
+				height: 260,
+				colors: ['#5e64ff', '#e8a33d', '#29a745', '#d13438', '#8e44ad'],
+				lineOptions: { hideDots: 1, regionFill: 0 }
+			});
+		}
+	});
+}
 
 function render_ai_insights(insight) {
 	let existing = document.getElementById('ci-ai-insights');
@@ -211,4 +243,3 @@ function render_ai_insights(insight) {
 	`;
 	document.getElementById('ci-dashboard').insertAdjacentHTML('afterend', html);
 }
-

@@ -37,6 +37,7 @@ def get_search_trends(analysis):
 		fields=["competitor_name"]
 	)
 
+
 	# Google Trends allows a maximum of 5 keywords per comparison
 	keywords = [s["competitor_name"] for s in snapshots][:5]
 
@@ -52,11 +53,61 @@ def get_search_trends(analysis):
 
 	df = df.drop(columns=["isPartial"], errors="ignore")
 
+	# Resample daily data down to weekly averages - keeps the chart readable
+	weekly = df.resample("W").mean()
+
 	result = {
-		"dates": [d.strftime("%Y-%m-%d") for d in df.index],
-		"series": {col: df[col].tolist() for col in df.columns}
+		"dates": [d.strftime("%b %d") for d in weekly.index],
+		"series": {col: weekly[col].tolist() for col in weekly.columns}
 	}
 	return result
+
+
+@frappe.whitelist()
+def get_search_trends(analysis):
+	cache_key = f"search_trends:{analysis}"
+	cached = frappe.cache().get_value(cache_key)
+	if cached:
+		return cached
+
+	snapshots = frappe.get_all(
+		"Competitor Snapshot",
+		filters={"analysis": analysis},
+		fields=["competitor_name"]
+	)
+
+	keywords = [s["competitor_name"] for s in snapshots][:5]
+
+	if not keywords:
+		return {"dates": [], "series": {}}
+
+	try:
+		pytrends = TrendReq(hl='en-US', tz=360)
+		pytrends.build_payload(keywords, timeframe='today 3-m')
+		df = pytrends.interest_over_time()
+	except Exception as e:
+		frappe.log_error(f"Google Trends error: {e}", "search_trends")
+		# Return cached-but-expired data if we have any, else empty
+		return cached or {"dates": [], "series": {}}
+
+	if df.empty:
+		return {"dates": [], "series": {}}
+
+	df = df.drop(columns=["isPartial"], errors="ignore")
+
+	# Resample daily data down to weekly averages - keeps the chart readable
+	weekly = df.resample("W").mean()
+
+	result = {
+		"dates": [d.strftime("%b %d") for d in weekly.index],
+		"series": {col: weekly[col].tolist() for col in weekly.columns}
+	}
+
+	# Cache for 6 hours - trend data doesn't need to be fetched more often than that
+	frappe.cache().set_value(cache_key, result, expires_in_sec=6 * 60 * 60)
+
+	return result
+
 
 @frappe.whitelist()
 def get_ai_insight(analysis):

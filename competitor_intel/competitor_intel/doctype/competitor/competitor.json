@@ -1,0 +1,61 @@
+{
+    "doctype": "DocType",
+    "name": "Competitor",
+    "module": "Competitor Intel",
+    "custom": 0,
+    "istable": 0,
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "autoname": "field:competitor_name",
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "field_order": [
+        "competitor_name",
+        "website",
+        "industry",
+        "column_break_1",
+        "notes"
+    ],
+    "fields": [
+        {
+            "fieldname": "competitor_name",
+            "fieldtype": "Data",
+            "label": "Competitor Name",
+            "reqd": 1,
+            "unique": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "website",
+            "fieldtype": "Data",
+            "label": "Website",
+            "in_list_view": 1,
+            "description": "Just the domain, e.g. example.com (no https://)"
+        },
+        {
+            "fieldname": "industry",
+            "fieldtype": "Select",
+            "label": "Industry",
+            "options": "SaaS\nE-commerce\nManufacturing\nConsulting\nServices\nOther",
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "column_break_1",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "notes",
+            "fieldtype": "Small Text",
+            "label": "Notes"
+        }
+    ],
+    "permissions": [
+        {
+            "role": "System Manager",
+            "read": 1,
+            "write": 1,
+            "create": 1,
+            "delete": 1
+        }
+    ]
+}
