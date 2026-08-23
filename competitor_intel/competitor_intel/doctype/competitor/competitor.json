@@ -14,7 +14,9 @@
         "website",
         "industry",
         "column_break_1",
-        "notes"
+        "notes",
+        "chart_section",
+        "metrics_chart"
     ],
     "fields": [
         {
@@ -47,6 +49,16 @@
             "fieldname": "notes",
             "fieldtype": "Small Text",
             "label": "Notes"
+        },
+        {
+            "fieldname": "chart_section",
+            "fieldtype": "Section Break",
+            "label": "Traffic Trend"
+        },
+        {
+            "fieldname": "metrics_chart",
+            "fieldtype": "HTML",
+            "label": "Metrics Chart"
         }
     ],
     "permissions": [
