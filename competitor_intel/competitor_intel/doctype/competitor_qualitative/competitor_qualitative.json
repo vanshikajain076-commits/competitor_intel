@@ -1,0 +1,39 @@
+{
+    "doctype": "DocType",
+    "name": "Competitor Qualitative",
+    "module": "Competitor Intel",
+    "custom": 0,
+    "istable": 0,
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "autoname": "hash",
+    "sort_field": "review_date",
+    "sort_order": "DESC",
+    "field_order": [
+        "competitor",
+        "review_date",
+        "market_position",
+        "pricing_model",
+        "column_break_1",
+        "target_audience",
+        "section_break_1",
+        "key_strength",
+        "key_weakness",
+        "differentiation"
+    ],
+    "fields": [
+        {"fieldname": "competitor", "fieldtype": "Link", "label": "Competitor", "options": "Competitor", "reqd": 1, "in_list_view": 1},
+        {"fieldname": "review_date", "fieldtype": "Date", "label": "Review Date", "reqd": 1, "default": "Today", "in_list_view": 1},
+        {"fieldname": "market_position", "fieldtype": "Select", "label": "Market Position", "options": "Leader\nChallenger\nNiche\nNew Entrant", "in_list_view": 1},
+        {"fieldname": "pricing_model", "fieldtype": "Select", "label": "Pricing Model", "options": "Freemium\nSubscription\nOne-time\nEnterprise\nCustom Quote"},
+        {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+        {"fieldname": "target_audience", "fieldtype": "Small Text", "label": "Target Audience"},
+        {"fieldname": "section_break_1", "fieldtype": "Section Break", "label": "SWOT"},
+        {"fieldname": "key_strength", "fieldtype": "Small Text", "label": "Key Strength"},
+        {"fieldname": "key_weakness", "fieldtype": "Small Text", "label": "Key Weakness"},
+        {"fieldname": "differentiation", "fieldtype": "Small Text", "label": "Differentiation"}
+    ],
+    "permissions": [
+        {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1}
+    ]
+}

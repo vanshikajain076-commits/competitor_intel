@@ -1,0 +1,41 @@
+{
+    "doctype": "DocType",
+    "name": "Strategy Action",
+    "module": "Competitor Intel",
+    "custom": 0,
+    "istable": 0,
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "autoname": "hash",
+    "sort_field": "due_date",
+    "sort_order": "ASC",
+    "field_order": [
+        "competitor",
+        "action_title",
+        "category",
+        "priority",
+        "column_break_1",
+        "status",
+        "owner",
+        "due_date",
+        "section_break_1",
+        "expected_impact",
+        "result_notes"
+    ],
+    "fields": [
+        {"fieldname": "competitor", "fieldtype": "Link", "label": "Competitor", "options": "Competitor", "in_list_view": 1},
+        {"fieldname": "action_title", "fieldtype": "Data", "label": "Action", "reqd": 1, "in_list_view": 1},
+        {"fieldname": "category", "fieldtype": "Select", "label": "Category", "options": "Pricing\nProduct\nMarketing\nSales\nPositioning\nOps", "in_list_view": 1},
+        {"fieldname": "priority", "fieldtype": "Select", "label": "Priority", "options": "High\nMedium\nLow", "default": "Medium", "in_list_view": 1},
+        {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+        {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Idea\nPlanned\nIn Progress\nDone\nDropped", "default": "Idea", "in_list_view": 1},
+        {"fieldname": "owner", "fieldtype": "Link", "label": "Owner", "options": "User"},
+        {"fieldname": "due_date", "fieldtype": "Date", "label": "Due Date", "in_list_view": 1},
+        {"fieldname": "section_break_1", "fieldtype": "Section Break", "label": "Details"},
+        {"fieldname": "expected_impact", "fieldtype": "Small Text", "label": "Expected Impact"},
+        {"fieldname": "result_notes", "fieldtype": "Small Text", "label": "Result Notes"}
+    ],
+    "permissions": [
+        {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1}
+    ]
+}
