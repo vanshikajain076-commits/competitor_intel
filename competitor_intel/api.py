@@ -4,7 +4,7 @@ import frappe
 import requests
 from frappe.utils import add_days, today
 
-MOCK_API_BASE = "http://mock-traffic-api:5000"
+MOCK_API_BASE = "http://localhost:5001"
 
 METRIC_MAP = {
     "monthly_visits": "Monthly Visits",
@@ -92,3 +92,66 @@ def get_monthly_visits_trend(competitor):
 		"labels": [str(r.metric_date) for r in rows],
 		"values": [r.value for r in rows],
 	}
+
+
+@frappe.whitelist()
+def get_overview_data():
+	competitors = frappe.get_all("Competitor", fields=["name", "competitor_name", "website", "industry"])
+	result = []
+	for c in competitors:
+		latest = {}
+		for row in frappe.get_all(
+			"Competitor Metric",
+			filters={"competitor": c.name},
+			fields=["metric_type", "value", "metric_date"],
+			order_by="metric_date desc",
+		):
+			if row.metric_type not in latest:
+				latest[row.metric_type] = row.value
+
+		qual = frappe.get_all(
+			"Competitor Qualitative",
+			filters={"competitor": c.name},
+			fields=["market_position", "key_strength", "key_weakness"],
+			order_by="review_date desc",
+			limit_page_length=1,
+		)
+		q = qual[0] if qual else {}
+
+		result.append({
+			"competitor_name": c.competitor_name,
+			"website": c.website,
+			"industry": c.industry,
+			"monthly_visits": latest.get("Monthly Visits"),
+			"search_trend": latest.get("Search Trend Index"),
+			"bounce_rate": latest.get("Bounce Rate"),
+			"market_position": q.get("market_position"),
+			"key_strength": q.get("key_strength"),
+			"key_weakness": q.get("key_weakness"),
+		})
+	return result
+
+
+@frappe.whitelist()
+def get_comparison_trend(metric_type="Monthly Visits"):
+	competitors = frappe.get_all("Competitor", fields=["name", "competitor_name"])
+	series = {}
+	all_dates = set()
+	for c in competitors:
+		rows = frappe.get_all(
+			"Competitor Metric",
+			filters={"competitor": c.name, "metric_type": metric_type},
+			fields=["metric_date", "value"],
+			order_by="metric_date asc",
+		)
+		series[c.competitor_name] = {str(r.metric_date): r.value for r in rows}
+		all_dates.update(str(r.metric_date) for r in rows)
+
+	sorted_dates = sorted(all_dates)
+	datasets = []
+	for name, values_by_date in series.items():
+		datasets.append({
+			"name": name,
+			"values": [values_by_date.get(d) for d in sorted_dates],
+		})
+	return {"labels": sorted_dates, "datasets": datasets}
