@@ -5,6 +5,13 @@ app_description = "acker dashboard"
 app_email = "vanshikajain076@gmail.com"
 app_license = "mit"
 
+# Fixtures
+# ------------------
+
+fixtures = [
+	{"doctype": "Custom Field", "filters": [["dt", "=", "Competitor"]]}
+]
+
 # Apps
 # ------------------
 

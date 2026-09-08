@@ -1,0 +1,40 @@
+[
+ {
+  "doctype": "Custom Field",
+  "name": "Competitor-industry",
+  "dt": "Competitor",
+  "fieldname": "industry",
+  "fieldtype": "Select",
+  "label": "Industry",
+  "options": "SaaS\nE-commerce\nManufacturing\nConsulting\nServices\nLocal Business\nOther",
+  "insert_after": "website"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Competitor-logo",
+  "dt": "Competitor",
+  "fieldname": "logo",
+  "fieldtype": "Attach Image",
+  "label": "Logo",
+  "insert_after": "industry"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Competitor-notes",
+  "dt": "Competitor",
+  "fieldname": "notes",
+  "fieldtype": "Small Text",
+  "label": "Notes",
+  "insert_after": "logo"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Competitor-is_active",
+  "dt": "Competitor",
+  "fieldname": "is_active",
+  "fieldtype": "Check",
+  "label": "Is Active",
+  "default": "1",
+  "insert_after": "notes"
+ }
+]
