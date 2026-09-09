@@ -81,6 +81,72 @@ def seed_demo_history(competitor, days=14):
 
 
 @frappe.whitelist()
+def fetch_cloudflare_rank(competitor):
+	"""Fetch a domain's real traffic rank from the Cloudflare Radar API and save it as a Competitor Metric."""
+	doc = frappe.get_doc("Competitor", competitor)
+	if not doc.website:
+		frappe.throw("This Competitor has no website set.")
+
+	token = frappe.conf.get("cloudflare_api_token")
+	if not token:
+		frappe.throw(
+			"Cloudflare API token isn't configured. Add <code>cloudflare_api_token</code> "
+			"to your site config to enable this feature."
+		)
+
+	website = doc.website.replace("https://", "").replace("http://", "").rstrip("/")
+
+	response = requests.get(
+		f"https://api.cloudflare.com/client/v4/radar/ranking/domain/{website}",
+		headers={"Authorization": f"Bearer {token}"},
+		timeout=10,
+	)
+	response.raise_for_status()
+	data = response.json()
+
+	details = None
+	for key, value in data.get("result", {}).items():
+		if key == "meta" or not isinstance(value, dict):
+			continue
+		details = value
+		break
+
+	rank = details.get("rank") if details else None
+	bucket = details.get("bucket") if details else None
+
+	# `bucket` is the domain's rank ceiling, e.g. "10000" means "ranked somewhere
+	# in the top 10,000". Beyond the largest defined bucket, Cloudflare returns a
+	# non-numeric sentinel like ">200000" — that can't be turned into a real
+	# upper-bound estimate, so it's treated the same as "no ranking data".
+	bucket_estimate = None
+	if bucket is not None:
+		try:
+			bucket_estimate = int(bucket)
+		except (TypeError, ValueError):
+			bucket_estimate = None
+
+	if rank is not None:
+		value = rank
+		source = "Cloudflare Radar (Exact Rank)"
+	elif bucket_estimate is not None:
+		value = bucket_estimate
+		source = "Cloudflare Radar (Bucket Estimate)"
+	else:
+		return {"message": "No Cloudflare ranking available for this domain"}
+
+	metric = frappe.new_doc("Competitor Metric")
+	metric.competitor = competitor
+	metric.metric_date = today()
+	metric.metric_type = "Cloudflare Traffic Rank"
+	metric.value = value
+	metric.source = source
+	metric.insert(ignore_permissions=True)
+	frappe.db.commit()
+
+	return {"created": metric.name, "value": value, "source": source}
+
+
+@frappe.whitelist()
 def get_monthly_visits_trend(competitor):
 	rows = frappe.get_all(
 		"Competitor Metric",

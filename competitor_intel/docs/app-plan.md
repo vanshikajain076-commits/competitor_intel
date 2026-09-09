@@ -53,6 +53,14 @@ Single business tracking its own competitors continuously — **not** an agency 
 | `value` | Float |
 | `source` | Select |
 
+**Traffic data sourcing strategy (decided after initial build):**
+- `Cloudflare Traffic Rank` — real, free, via the Cloudflare Radar API (requires a free Cloudflare account + API token, stored as `frappe.conf.cloudflare_api_token`). Gives a real, non-fabricated relative popularity rank/bucket for a domain — not exact visit counts, since no free source provides those.
+- `Monthly Visits`, `Page Views`, `Bounce Rate`, `Avg Duration (seconds)`, `Pages per Visit` — simulated for now via a local mock server, always tagged `source = "Mock API"` so they're never mistaken for real numbers. Once the product idea is validated, these get swapped for a real paid API (e.g. SimilarWeb/Semrush) — same field shape, same code path in `api.py`, just a different HTTP call and a different `source` label.
+- The mock server (`mock_server/server.py`) is a standalone script, deliberately kept outside the Frappe app itself — run as a separate local process on port 5001, never deployed anywhere real.
+- `Competitor Metric`'s `source` Select field needs a new option added: `"Cloudflare Radar"` (alongside the existing Manual Entry / Mock API / Google Trends / Other).
+- `Competitor Metric`'s `metric_type` Select field needs a new option added: `"Cloudflare Traffic Rank"`.
+
+
 ### `Competitor Qualitative` (already exists — keep, just re-point the Link)
 | Field | Type |
 |---|---|
