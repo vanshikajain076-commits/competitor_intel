@@ -1,0 +1,88 @@
+{
+    "doctype": "DocType",
+    "name": "Competitor Loss Snapshot",
+    "module": "Competitor Intel",
+    "custom": 0,
+    "istable": 0,
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "autoname": "hash",
+    "sort_field": "period_start",
+    "sort_order": "DESC",
+    "field_order": [
+        "competitor",
+        "period_start",
+        "period_end",
+        "opportunity_lost_count",
+        "opportunity_value_lost",
+        "quotation_lost_count",
+        "quotation_value_lost",
+        "lost_reasons",
+        "generated_on"
+    ],
+    "fields": [
+        {
+            "fieldname": "competitor",
+            "fieldtype": "Link",
+            "label": "Competitor",
+            "options": "Competitor",
+            "reqd": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "period_start",
+            "fieldtype": "Date",
+            "label": "Period Start",
+            "reqd": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "period_end",
+            "fieldtype": "Date",
+            "label": "Period End",
+            "reqd": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "opportunity_lost_count",
+            "fieldtype": "Int",
+            "label": "Opportunity Lost Count"
+        },
+        {
+            "fieldname": "opportunity_value_lost",
+            "fieldtype": "Currency",
+            "label": "Opportunity Value Lost"
+        },
+        {
+            "fieldname": "quotation_lost_count",
+            "fieldtype": "Int",
+            "label": "Quotation Lost Count"
+        },
+        {
+            "fieldname": "quotation_value_lost",
+            "fieldtype": "Currency",
+            "label": "Quotation Value Lost"
+        },
+        {
+            "fieldname": "lost_reasons",
+            "fieldtype": "Table",
+            "label": "Lost Reasons",
+            "options": "Competitor Loss Reason Count"
+        },
+        {
+            "fieldname": "generated_on",
+            "fieldtype": "Datetime",
+            "label": "Generated On",
+            "read_only": 1
+        }
+    ],
+    "permissions": [
+        {
+            "role": "System Manager",
+            "read": 1,
+            "write": 1,
+            "create": 1,
+            "delete": 1
+        }
+    ]
+}

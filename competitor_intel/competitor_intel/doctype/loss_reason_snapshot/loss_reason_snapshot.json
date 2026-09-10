@@ -1,0 +1,79 @@
+{
+    "doctype": "DocType",
+    "name": "Loss Reason Snapshot",
+    "module": "Competitor Intel",
+    "custom": 0,
+    "istable": 0,
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "autoname": "hash",
+    "sort_field": "period_start",
+    "sort_order": "DESC",
+    "field_order": [
+        "period_start",
+        "period_end",
+        "reason_type",
+        "lost_reason",
+        "count",
+        "total_value_lost",
+        "generated_on"
+    ],
+    "fields": [
+        {
+            "fieldname": "period_start",
+            "fieldtype": "Date",
+            "label": "Period Start",
+            "reqd": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "period_end",
+            "fieldtype": "Date",
+            "label": "Period End",
+            "reqd": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "reason_type",
+            "fieldtype": "Select",
+            "label": "Reason Type",
+            "options": "Opportunity Lost Reason\nQuotation Lost Reason",
+            "reqd": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "lost_reason",
+            "fieldtype": "Dynamic Link",
+            "label": "Lost Reason",
+            "options": "reason_type",
+            "reqd": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "count",
+            "fieldtype": "Int",
+            "label": "Count",
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "total_value_lost",
+            "fieldtype": "Currency",
+            "label": "Total Value Lost"
+        },
+        {
+            "fieldname": "generated_on",
+            "fieldtype": "Datetime",
+            "label": "Generated On",
+            "read_only": 1
+        }
+    ],
+    "permissions": [
+        {
+            "role": "System Manager",
+            "read": 1,
+            "write": 1,
+            "create": 1,
+            "delete": 1
+        }
+    ]
+}
