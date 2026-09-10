@@ -282,3 +282,32 @@ def get_current_month_loss_data(competitor=None):
 			for (reason_type, reason_name), data in by_reason.items()
 		],
 	}
+
+
+@frappe.whitelist()
+def get_top_competitors_by_losses(quarter_start, quarter_end):
+	"""Top 5 competitors by total deals lost (quotation + opportunity) in a period.
+
+	Sums quotation_lost_count + opportunity_lost_count across each
+	competitor's Competitor Loss Snapshot rows whose period falls within
+	[quarter_start, quarter_end].
+	"""
+	rows = frappe.get_all(
+		"Competitor Loss Snapshot",
+		filters={
+			"period_start": [">=", quarter_start],
+			"period_end": ["<=", quarter_end],
+		},
+		fields=["competitor", "quotation_lost_count", "opportunity_lost_count"],
+	)
+
+	totals = {}
+	for row in rows:
+		totals[row.competitor] = (
+			totals.get(row.competitor, 0)
+			+ (row.quotation_lost_count or 0)
+			+ (row.opportunity_lost_count or 0)
+		)
+
+	ranked = sorted(totals.items(), key=lambda item: item[1], reverse=True)[:5]
+	return [{"competitor": name, "total_lost": total} for name, total in ranked]
