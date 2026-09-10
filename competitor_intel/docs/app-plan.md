@@ -42,26 +42,16 @@ Single business tracking its own competitors continuously — **not** an agency 
 | `notes` | Small Text | |
 | `is_active` | Check, default 1 | Lets you archive a competitor without losing their history |
 
-*(Action item before building: check Customize Form → Competitor in the desk UI to confirm what standard fields already exist, so nothing above duplicates them. Field names for both `Quotation` and `Opportunity` are now confirmed from actual exports — see Section 4's `lost_on` addition for the details and the one remaining open item, the true name of the lost-reason master doctype.)*
-
-### `Competitor Metric` (already exists — keep, just re-point the Link)
+### `Competitor Metric` (already existed — kept, Link re-pointed)
 | Field | Type |
 |---|---|
 | `competitor` | Link → Competitor (standard) |
 | `metric_date` | Date |
-| `metric_type` | Select — existing values **plus** new `"Traffic: <source>"` values (Direct, Organic Search, Paid Search, Social, Referral, Email, Display Ads) — traffic-source breakdowns became metric rows instead of a separate doctype |
+| `metric_type` | Select — includes Traffic: <source> values, plus "Cloudflare Traffic Rank" |
 | `value` | Float |
-| `source` | Select |
+| `source` | Select — includes "Mock API", "Cloudflare Radar (Exact Rank)", "Cloudflare Radar (Bucket Estimate)", "Google Trends", "Manual Entry", "Other" |
 
-**Traffic data sourcing strategy (decided after initial build):**
-- `Cloudflare Traffic Rank` — real, free, via the Cloudflare Radar API (requires a free Cloudflare account + API token, stored as `frappe.conf.cloudflare_api_token`). Two distinct outcomes, never confused with each other: a globally top-100 domain gets its exact rank (`source = "Cloudflare Radar (Exact Rank)"`); otherwise, if Cloudflare returns a rank bucket (e.g. "top 10,000"), that ceiling is used as an estimate (`source = "Cloudflare Radar (Bucket Estimate)"`). If neither is available for a domain, no Competitor Metric record is created — the API returns a friendly "no ranking available" message instead of fabricating a value.
-- `Monthly Visits`, `Page Views`, `Bounce Rate`, `Avg Duration (seconds)`, `Pages per Visit` — simulated for now via a local mock server, always tagged `source = "Mock API"` so they're never mistaken for real numbers. Once the product idea is validated, these get swapped for a real paid API (e.g. SimilarWeb/Semrush) — same field shape, same code path in `api.py`, just a different HTTP call and a different `source` label.
-- The mock server (`mock_server/server.py`) is a standalone stdlib-only script, deliberately kept outside the Frappe app itself — run as a separate local process, never deployed anywhere real, never real data.
-- `Competitor Metric`'s `source` Select field needs the new options `"Cloudflare Radar (Exact Rank)"` and `"Cloudflare Radar (Bucket Estimate)"` (alongside the existing Manual Entry / Mock API / Google Trends / Other).
-- `Competitor Metric`'s `metric_type` Select field needs a new option added: `"Cloudflare Traffic Rank"`.
-
-
-### `Competitor Qualitative` (already exists — keep, just re-point the Link)
+### `Competitor Qualitative` (already existed — kept, Link re-pointed)
 | Field | Type |
 |---|---|
 | `competitor` | Link → Competitor (standard) |
@@ -71,8 +61,8 @@ Single business tracking its own competitors continuously — **not** an agency 
 | `target_audience` | Small Text |
 | `key_strength` / `key_weakness` / `differentiation` | Small Text |
 
-### `Competitor Loss Snapshot` (NEW)
-One row per **active** competitor per month, **always generated even if the count is zero** (keeps trend charts continuous and trustworthy).
+### `Competitor Loss Snapshot`
+One row per **active** competitor per month, always generated even if zero.
 
 | Field | Type |
 |---|---|
@@ -82,75 +72,127 @@ One row per **active** competitor per month, **always generated even if the coun
 | `opportunity_value_lost` | Currency |
 | `quotation_lost_count` | Int |
 | `quotation_value_lost` | Currency |
-| `lost_reasons` | Table → **Competitor Loss Reason Count** (child table) |
+| `lost_reasons` | Table → **Competitor Loss Reason Count** |
 | `generated_on` | Datetime, read-only |
-
-**Kept deliberately separate rather than one merged number:** a deal dying at Opportunity stage (before you even sent a price) usually points to a lead-qualification or first-impression problem, while dying at Quotation stage (they seriously considered you, then chose someone else) usually points to a pricing or final-comparison problem. Merging them would hide which one is actually the bigger issue for the business.
 
 **`Competitor Loss Reason Count`** (child table): `reason_type` (Select: "Opportunity Lost Reason" / "Quotation Lost Reason"), `lost_reason` (Dynamic Link, target = `reason_type`), `count` (Int)
 
-### `Loss Reason Snapshot` (NEW — company-wide, no competitor)
-Handles the case where a lost deal has a reason but **no competitor named** (standard ERPNext only requires Lost Reason, not Competitor, on the "Set as Lost" popup, at either stage). One row per existing reason per month, always generated.
-
+### `Loss Reason Snapshot` (company-wide, no competitor)
 | Field | Type |
 |---|---|
 | `period_start` / `period_end` | Date |
 | `reason_type` | Select: "Opportunity Lost Reason" / "Quotation Lost Reason" |
-| `lost_reason` | Dynamic Link (target = whatever `reason_type` says) |
+| `lost_reason` | Dynamic Link (target = `reason_type`) |
 | `count` | Int |
 | `total_value_lost` | Currency |
 | `generated_on` | Datetime, read-only |
 
-**Why `reason_type` + Dynamic Link instead of one Link field:** confirmed by checking both child doctypes directly — `Opportunity` and `Quotation` each draw their lost-reason picker from a genuinely separate master doctype (`Opportunity Lost Reason` and `Quotation Lost Reason` respectively), not a shared list. There's no guarantee the two lists even contain the same reason names, so a single row can't safely combine "opportunity count" and "quotation count" for what might be two unrelated reasons that just happen to look similar. Each row now belongs to one specific reason from one specific list.
+### `AI Insight`
+| Field | Type |
+|---|---|
+| `competitor` | Link → Competitor |
+| `generated_on`, `threat_level`, `threat_explanation`, `market_gap_opportunities`, `recommended_positioning` | unchanged |
 
-### `AI Insight` (already exists — re-point from analysis to competitor)
-| Field | Type | Change |
-|---|---|---|
-| `competitor` | Link → Competitor | **was** `analysis` → Competitor Analysis |
-| `generated_on`, `threat_level`, `threat_explanation`, `market_gap_opportunities`, `recommended_positioning` | unchanged | |
-
-### `Strategy Action` (already exists — re-point + new source fields)
+### `Strategy Action`
 | Field | Type | Notes |
 |---|---|---|
-| `competitor` | Link → Competitor | Re-pointed, otherwise unchanged |
-| `source_type` | Select — blank / AI Insight / Competitor Loss Snapshot / Loss Reason Snapshot | Optional — blank means "just a manual idea" |
-| `source_reference` | Dynamic Link (target = whatever `source_type` says) | Optional |
+| `competitor` | Link → Competitor | |
+| `source_type` | Select — blank / "AI Insight" / "Competitor Loss Snapshot" / "Loss Reason Snapshot" | Blank is an explicit, selectable option meaning "just a manual idea" |
+| `source_reference` | Dynamic Link (target = `source_type`) | Optional |
 | `action_title`, `category`, `priority`, `status`, `owner`, `due_date`, `expected_impact`, `result_notes` | unchanged | |
 
-**Design note on `source_type`/`source_reference`:** to keep this user-friendly, plan "Turn this into an action" quick-add buttons on the AI Insight box and on the loss-numbers panel, which pre-fill these two fields automatically. A person starting a brand-new action from scratch just leaves them blank — same effort as if the fields didn't exist.
-
-### Small addition to standard `Quotation` AND standard `Opportunity`
-Same field, same reasoning, added to **both** doctypes. Neither has a dedicated "date it was marked lost" field by default, and the trigger mechanism differs slightly but doesn't matter for us: Quotation has an explicit "Set as Lost" button, Opportunity just triggers the same popup when you set its `status` field to "Lost" directly — either way, a `doc_events` hook watching for `status` becoming "Lost" on save catches both.
-
+### `Quotation` and `Opportunity` — small addition
 | Field | Type | Purpose |
 |---|---|---|
-| `lost_on` | Date, read-only, hidden | Stamped automatically via a `doc_events` hook the moment `status` changes to "Lost." Needed because relying on `transaction_date` or `modified` would misattribute which month a loss belongs to. |
+| `lost_on` | Date, read-only, hidden | Stamped via a `doc_events` hook on `on_change` (verified as the one event guaranteed to fire on both doctypes' real "mark as Lost" code paths) — only set once, never overwritten |
 
-**Note on double-counting:** if a deal starts as an Opportunity and later becomes a Quotation, in normal usage nobody goes back and marks the original Opportunity "Lost" too once it's progressed — so this shouldn't double-count the same deal at both stages. Worth keeping an eye on in practice rather than building reconciliation logic against it up front; cheap to fix later if it turns out to be a real pattern.
+**Confirmed field names:** `Opportunity` → `lost_reasons` (child doctype `Opportunity Lost Reason Detail`, master `Opportunity Lost Reason`), `competitors` (child doctype `Competitor Detail`), value fields `opportunity_amount`/`base_opportunity_amount`. `Quotation` → `lost_reasons` (child doctype `Quotation Lost Reason Detail`, master `Quotation Lost Reason`), `competitors` (child doctype `Competitor Detail`, shared), value field `grand_total`. The two lost-reason master lists are genuinely separate — this is why `reason_type` + Dynamic Link is used instead of a single Link field.
 
-**Confirmed field names (checked directly on both child doctypes and their master doctypes on this instance):**
-
-| Doctype | Lost reasons field | Reason master doctype | Competitors field | Value field(s) |
-|---|---|---|---|---|
-| `Opportunity` | `lost_reasons` — Table MultiSelect, child doctype `Opportunity Lost Reason Detail` | **`Opportunity Lost Reason`** | `competitors` — Table MultiSelect, child doctype `Competitor Detail` | `opportunity_amount`, `base_opportunity_amount` |
-| `Quotation` | `lost_reasons` — child doctype `Quotation Lost Reason Detail` | **`Quotation Lost Reason`** | `competitors` — child doctype `Competitor Detail` | `grand_total` |
-
-**Resolved:** the two doctypes use two separate, unrelated master lists for lost reasons (not a shared one, as first guessed). This is why `Loss Reason Snapshot` and `Competitor Loss Reason Count` use a `reason_type` + Dynamic Link pair rather than a single `Link` field — see those doctypes above for the corrected shape. `Competitor Detail` (the competitors child doctype) *is* shared between both, so no equivalent correction was needed there.
+**Traffic data sourcing strategy:**
+- `Cloudflare Traffic Rank` — real, free, via Cloudflare Radar API (token stored as `frappe.conf.cloudflare_api_token`). Falls back from exact rank (only ~top 100 global domains) to a bucket-derived estimate for everyone else; clearly labeled via two distinct `source` values so exact and estimated are never confused. Domains with neither get no record and a friendly message, never a fabricated value.
+- `Monthly Visits`, `Page Views`, `Bounce Rate`, `Avg Duration`, `Pages per Visit` — simulated via a standalone local mock server (`mock_server/server.py`, stdlib-only, run separately on port 5001), always tagged `source = "Mock API"`. To be swapped for a real paid API later once the product idea is validated.
 
 ---
 
-## 5. Doctypes and files being DELETED
+## 5. Doctypes and files DELETED
 
-- Custom `Competitor` doctype (`competitor.json/py/js`) — replaced by standard `Competitor` + custom fields
-- `Competitor Snapshot` doctype — replaced by `Competitor Metric` + `Competitor Qualitative` (which already existed)
-- `Competitor Analysis` doctype — no longer needed (single-business model, no client-wrapper)
-- `Traffic Source` child table — folded into `Competitor Metric` as new metric types instead
-- Dead duplicate `get_search_trends()` function in `competitor_dashboard.py` (the uncached version — the cached one stays)
+- Custom `Competitor` doctype — replaced by standard `Competitor` + custom fields
+- `Competitor Snapshot` — replaced by `Competitor Metric` + `Competitor Qualitative`
+- `Competitor Analysis` — no longer needed (single-business model)
+- `Traffic Source` — folded into `Competitor Metric` as new metric types
+- Dead duplicate `get_search_trends()` in `competitor_dashboard.py`
 
-No data-migration patch needed — confirmed all current data is test/demo data, safe to delete and rebuild clean.
+No data-migration patch needed — all data on this instance was test/demo data.
 
 ---
 
 ## 6. Loss Intelligence: the aggregation logic
 
-One shared function does all the counting, used two different ways. It now reads from **both** `Opportunity` and `Quotation`, keeping the two stages separate throughout rather than merging them — and since each stage draws from its own separate reason list (`Opportunity Lost Reason` vs. `Quotation Lost Reason`), reasons are tracked per stage too, not merged by name.
+`collect_loss_data(period_start, period_end)` in `competitor_intel/loss_intelligence.py` — reads from both `Opportunity` and `Quotation` (filtered by `lost_on`), keeping the two stages separate throughout, and keeping reasons separate per stage too (keyed by `(reason_type, reason_name)`, never merged by name across the two master lists).
+
+**Attribution rule:** full attribution — a deal with multiple competitors or reasons counts fully toward each one, not split. Understood trade-off: summed totals across competitors/reasons can exceed true total lost value for the period.
+
+**Returns** `(by_competitor, by_reason)` — plain dictionaries, writes nothing to the database itself.
+
+**Two callers:**
+1. **`generate_monthly_loss_snapshots()`** — registered in `hooks.py`'s `scheduler_events["monthly"]`, runs automatically, processes the previous fully-completed month, get-or-creates (updates in place, never duplicates) a `Competitor Loss Snapshot` per active competitor and a `Loss Reason Snapshot` per existing reason (both master lists), zero-filled if unused. Each record's upsert is individually wrapped in try/except + `frappe.log_error`, so one bad record doesn't stop the rest of the batch.
+2. **`get_current_month_loss_data(competitor=None)`** in `api.py` — on-demand, whitelisted, read-only, computes month-start-to-today, returns a JSON-serializable (tuple keys flattened to lists) slice of the same underlying data. Never writes to the database. Powers the "this month so far" live panels/buttons — company-wide if no competitor given, scoped if one is.
+
+---
+
+## 7. Page Layouts
+
+### Competitor Overview (home page)
+1. "This month so far" company-wide loss panel (live, via `get_current_month_loss_data()`), clearly labeled as in-progress/unfinalized, distinct from historical data
+2. Competitor table, one row per competitor, clickable through to the detail page
+3. Comparison chart with a metric-type picker (not hardcoded to one metric)
+4. "Who we're losing to most" ranking (top 5, current quarter, via `get_top_competitors_by_losses()`)
+
+### Competitor Detail (click into one competitor)
+**Section A — Loss Intelligence (shown first):**
+- This competitor's loss trend chart (from saved monthly snapshots)
+- Top reasons we lose to them specifically
+- "This month so far" live button, scoped to this competitor
+
+**Section B — Profile & Benchmarking (shown second):**
+- Basic info (website, industry, notes)
+- Metrics chart (pick a metric type)
+- Qualitative notes, most recent + history
+- AI Insight box, scoped to this competitor
+- Strategy Actions list + "add new action" button, with quick-add-from-insight prefilling `source_type`/`source_reference`
+
+---
+
+## 8. Known cleanup items
+
+- Remove the dead duplicate `get_search_trends()` in `competitor_dashboard.py`
+- `generate_ai_insights()` should handle a missing `frappe.conf.groq_api_key` gracefully
+- `fetch_traffic_data` / `seed_demo_history` — confirm `doc.website` still resolves correctly as a custom field
+- Permissions are System Manager-only everywhere — fine for now, needs real role design before multiple people use this
+
+---
+
+## 9. Suggested Build Order
+
+1. Add custom fields to standard `Competitor` — **done**
+2. Re-point `Competitor Metric`, `Competitor Qualitative`, `Strategy Action`, `AI Insight` Links to standard `Competitor` — **done**
+3. Move `competitor.js` form logic to a `doctype_js` hook; delete old custom Competitor doctype files — **done**
+4. Delete `Competitor Snapshot`, `Competitor Analysis`, `Traffic Source`; add Traffic metric types — **done**
+5. Add `lost_on` + `doc_events` hook on `Quotation` and `Opportunity` — **done**
+6. Build `Competitor Loss Snapshot`, `Loss Reason Snapshot`, `Competitor Loss Reason Count` doctypes — **done**
+7. Build `collect_loss_data()`, the monthly scheduled job, and the on-demand current-month function — **done**
+8. Add `source_type`/`source_reference` to `Strategy Action` — **done**
+9. Rebuild the two pages (Overview upgrades; new Detail page in sub-steps 9a–9d) — **in progress**
+10. Clean up known issues in Section 8
+11. Test end-to-end on one real competitor and one real lost Quotation/Opportunity
+
+---
+
+## 10. Working setup
+
+- App folder: `apps/competitor_intel`, git repo, remote named `upstream`
+- Site: `metalco.localhost`
+- Claude Code runs in a terminal `cd`'d into the app folder; a `mock_server/server.py` process runs separately in its own terminal when needed
+- This chat stays the planning/architecture reference; Claude Code handles hands-on implementation
+- Normal loop: edit → `bench --site metalco.localhost migrate` (schema changes) → test in browser/console → `git add/commit/push`, one small step at a time
+- `CLAUDE.md` at the repo root documents the two-level nested-folder gotcha (repo root vs. inner Python package) — check it whenever creating a new top-level module
