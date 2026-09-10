@@ -9,7 +9,7 @@ app_license = "mit"
 # ------------------
 
 fixtures = [
-	{"doctype": "Custom Field", "filters": [["dt", "=", "Competitor"]]}
+	{"doctype": "Custom Field", "filters": [["dt", "in", ["Competitor", "Quotation", "Opportunity"]]]}
 ]
 
 # Apps
@@ -144,13 +144,14 @@ doctype_js = {"Competitor": "public/js/competitor.js"}
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Quotation": {
+		"on_change": "competitor_intel.utils.stamp_lost_on"
+	},
+	"Opportunity": {
+		"on_change": "competitor_intel.utils.stamp_lost_on"
+	}
+}
 
 # Scheduled Tasks
 # ---------------

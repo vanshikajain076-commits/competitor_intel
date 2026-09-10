@@ -36,5 +36,27 @@
   "label": "Is Active",
   "default": "1",
   "insert_after": "notes"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Quotation-lost_on",
+  "dt": "Quotation",
+  "fieldname": "lost_on",
+  "fieldtype": "Date",
+  "label": "Lost On",
+  "insert_after": "status",
+  "hidden": 1,
+  "read_only": 1
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Opportunity-lost_on",
+  "dt": "Opportunity",
+  "fieldname": "lost_on",
+  "fieldtype": "Date",
+  "label": "Lost On",
+  "insert_after": "status",
+  "hidden": 1,
+  "read_only": 1
  }
 ]
