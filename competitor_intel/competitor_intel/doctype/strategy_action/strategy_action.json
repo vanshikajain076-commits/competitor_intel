@@ -11,6 +11,8 @@
     "sort_order": "ASC",
     "field_order": [
         "competitor",
+        "source_type",
+        "source_reference",
         "action_title",
         "category",
         "priority",
@@ -24,6 +26,8 @@
     ],
     "fields": [
         {"fieldname": "competitor", "fieldtype": "Link", "label": "Competitor", "options": "Competitor", "in_list_view": 1},
+        {"fieldname": "source_type", "fieldtype": "Select", "label": "Source Type", "options": "\nAI Insight\nCompetitor Loss Snapshot\nLoss Reason Snapshot"},
+        {"fieldname": "source_reference", "fieldtype": "Dynamic Link", "label": "Source Reference", "options": "source_type"},
         {"fieldname": "action_title", "fieldtype": "Data", "label": "Action", "reqd": 1, "in_list_view": 1},
         {"fieldname": "category", "fieldtype": "Select", "label": "Category", "options": "Pricing\nProduct\nMarketing\nSales\nPositioning\nOps", "in_list_view": 1},
         {"fieldname": "priority", "fieldtype": "Select", "label": "Priority", "options": "High\nMedium\nLow", "default": "Medium", "in_list_view": 1},
