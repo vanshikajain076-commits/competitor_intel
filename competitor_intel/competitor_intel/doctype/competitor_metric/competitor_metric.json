@@ -37,7 +37,7 @@
             "fieldname": "metric_type",
             "fieldtype": "Select",
             "label": "Metric Type",
-            "options": "Monthly Visits\nPage Views\nBounce Rate\nAvg Duration (seconds)\nPages per Visit\nSearch Trend Index\nReview Rating\nReview Count\nCloudflare Traffic Rank",
+            "options": "Monthly Visits\nPage Views\nBounce Rate\nAvg Duration (seconds)\nPages per Visit\nSearch Trend Index\nReview Rating\nReview Count\nCloudflare Traffic Rank\nTraffic: Direct\nTraffic: Organic Search\nTraffic: Paid Search\nTraffic: Social\nTraffic: Referral\nTraffic: Email\nTraffic: Display Ads",
             "reqd": 1,
             "in_list_view": 1
         },

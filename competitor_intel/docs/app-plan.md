@@ -54,10 +54,10 @@ Single business tracking its own competitors continuously — **not** an agency 
 | `source` | Select |
 
 **Traffic data sourcing strategy (decided after initial build):**
-- `Cloudflare Traffic Rank` — real, free, via the Cloudflare Radar API (requires a free Cloudflare account + API token, stored as `frappe.conf.cloudflare_api_token`). Gives a real, non-fabricated relative popularity rank/bucket for a domain — not exact visit counts, since no free source provides those.
+- `Cloudflare Traffic Rank` — real, free, via the Cloudflare Radar API (requires a free Cloudflare account + API token, stored as `frappe.conf.cloudflare_api_token`). Two distinct outcomes, never confused with each other: a globally top-100 domain gets its exact rank (`source = "Cloudflare Radar (Exact Rank)"`); otherwise, if Cloudflare returns a rank bucket (e.g. "top 10,000"), that ceiling is used as an estimate (`source = "Cloudflare Radar (Bucket Estimate)"`). If neither is available for a domain, no Competitor Metric record is created — the API returns a friendly "no ranking available" message instead of fabricating a value.
 - `Monthly Visits`, `Page Views`, `Bounce Rate`, `Avg Duration (seconds)`, `Pages per Visit` — simulated for now via a local mock server, always tagged `source = "Mock API"` so they're never mistaken for real numbers. Once the product idea is validated, these get swapped for a real paid API (e.g. SimilarWeb/Semrush) — same field shape, same code path in `api.py`, just a different HTTP call and a different `source` label.
-- The mock server (`mock_server/server.py`) is a standalone script, deliberately kept outside the Frappe app itself — run as a separate local process on port 5001, never deployed anywhere real.
-- `Competitor Metric`'s `source` Select field needs a new option added: `"Cloudflare Radar"` (alongside the existing Manual Entry / Mock API / Google Trends / Other).
+- The mock server (`mock_server/server.py`) is a standalone stdlib-only script, deliberately kept outside the Frappe app itself — run as a separate local process, never deployed anywhere real, never real data.
+- `Competitor Metric`'s `source` Select field needs the new options `"Cloudflare Radar (Exact Rank)"` and `"Cloudflare Radar (Bucket Estimate)"` (alongside the existing Manual Entry / Mock API / Google Trends / Other).
 - `Competitor Metric`'s `metric_type` Select field needs a new option added: `"Cloudflare Traffic Rank"`.
 
 
