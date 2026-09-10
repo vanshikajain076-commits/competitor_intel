@@ -2,7 +2,9 @@ import random
 
 import frappe
 import requests
-from frappe.utils import add_days, today
+from frappe.utils import add_days, get_first_day, today
+
+from competitor_intel.loss_intelligence import collect_loss_data
 
 MOCK_API_BASE = "http://localhost:5001"
 
@@ -221,3 +223,62 @@ def get_comparison_trend(metric_type="Monthly Visits"):
 			"values": [values_by_date.get(d) for d in sorted_dates],
 		})
 	return {"labels": sorted_dates, "datasets": datasets}
+
+
+@frappe.whitelist()
+def get_current_month_loss_data(competitor=None):
+	"""Read-only, on-demand current-month-to-date loss numbers.
+
+	Does not write anything to the database. If `competitor` is given,
+	returns only that competitor's slice of by_competitor; otherwise
+	returns the full company-wide by_competitor/by_reason breakdown.
+	"""
+	period_start = get_first_day(today())
+	period_end = today()
+
+	by_competitor, by_reason = collect_loss_data(period_start, period_end)
+
+	if competitor:
+		data = by_competitor.get(competitor) or {
+			"opportunity_count": 0,
+			"opportunity_value": 0,
+			"quotation_count": 0,
+			"quotation_value": 0,
+			"reasons": {},
+		}
+		return {
+			"period_start": period_start,
+			"period_end": period_end,
+			"competitor": competitor,
+			"opportunity_count": data["opportunity_count"],
+			"opportunity_value": data["opportunity_value"],
+			"quotation_count": data["quotation_count"],
+			"quotation_value": data["quotation_value"],
+			"reasons": [
+				{"reason_type": reason_type, "lost_reason": reason_name, "count": count}
+				for (reason_type, reason_name), count in data["reasons"].items()
+			],
+		}
+
+	return {
+		"period_start": period_start,
+		"period_end": period_end,
+		"by_competitor": [
+			{
+				"competitor": name,
+				"opportunity_count": data["opportunity_count"],
+				"opportunity_value": data["opportunity_value"],
+				"quotation_count": data["quotation_count"],
+				"quotation_value": data["quotation_value"],
+				"reasons": [
+					{"reason_type": reason_type, "lost_reason": reason_name, "count": count}
+					for (reason_type, reason_name), count in data["reasons"].items()
+				],
+			}
+			for name, data in by_competitor.items()
+		],
+		"by_reason": [
+			{"reason_type": reason_type, "lost_reason": reason_name, **data}
+			for (reason_type, reason_name), data in by_reason.items()
+		],
+	}

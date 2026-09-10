@@ -156,23 +156,11 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"competitor_intel.tasks.all"
-# 	],
-# 	"daily": [
-# 		"competitor_intel.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"competitor_intel.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"competitor_intel.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"competitor_intel.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"monthly": [
+		"competitor_intel.loss_intelligence.generate_monthly_loss_snapshots"
+	],
+}
 
 # Testing
 # -------
