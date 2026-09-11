@@ -53,6 +53,7 @@ frappe.pages['competitor-detail'].refresh = function(wrapper) {
 					<h4>Loss Intelligence</h4>
 					<div id="loss-trend-chart" style="margin-bottom: 20px;"></div>
 					<div id="top-loss-reasons" style="margin-bottom: 20px;"></div>
+					<div id="top-loss-reasons-action" style="margin-bottom: 20px;"></div>
 					<div>
 						<button class="btn btn-default btn-sm" id="month-so-far-btn">This Month So Far</button>
 						<div id="month-so-far-panel" style="margin-top: 12px;"></div>
@@ -64,18 +65,29 @@ frappe.pages['competitor-detail'].refresh = function(wrapper) {
 						<h5>Metrics</h5>
 						<div id="metrics-section"></div>
 					</div>
-					<div>
+					<div style="margin-bottom: 24px;">
 						<h5>Qualitative Notes</h5>
 						<div id="qualitative-notes"></div>
+					</div>
+					<div style="margin-bottom: 24px;">
+						<h5>AI Insight</h5>
+						<div id="ai-insight-section"></div>
+					</div>
+					<div>
+						<h5>Strategy Actions</h5>
+						<div id="strategy-actions-section"></div>
 					</div>
 				</div>
 			`);
 
 			load_loss_trend_chart(competitor_name, container);
 			load_top_loss_reasons(competitor_name, container);
+			setup_turn_loss_into_action_button(competitor_name, container);
 			setup_month_so_far_button(competitor_name, container);
 			load_metrics_chart(competitor_name, container);
 			load_qualitative_notes(competitor_name, container);
+			load_ai_insight(competitor_name, container);
+			load_strategy_actions(competitor_name, container);
 		},
 		error: () => {
 			container.html(`<p class="text-muted">Could not load competitor "${frappe.utils.escape_html(competitor_name)}".</p>`);
@@ -379,4 +391,187 @@ function load_qualitative_notes(competitor_name, container) {
 			}
 		}
 	});
+}
+
+// Additive only — does not touch load_top_loss_reasons or its rendering,
+// per the rule that the already-committed Loss Intelligence section gets
+// exactly one small addition (this button) and nothing else changes.
+function setup_turn_loss_into_action_button(competitor_name, container) {
+	frappe.call({
+		method: 'frappe.client.get_list',
+		args: {
+			doctype: 'Competitor Loss Snapshot',
+			filters: { competitor: competitor_name },
+			fields: ['name'],
+			order_by: 'period_start desc',
+			limit_page_length: 1
+		},
+		callback: (r) => {
+			const snapshot = (r.message || [])[0];
+			const el = container.find('#top-loss-reasons-action');
+
+			if (!snapshot) {
+				el.empty();
+				return;
+			}
+
+			el.html('<button class="btn btn-default btn-sm" id="loss-to-action-btn">Turn this into an action</button>');
+			el.find('#loss-to-action-btn').on('click', () => {
+				open_add_action_dialog(competitor_name, container, 'Competitor Loss Snapshot', snapshot.name);
+			});
+		}
+	});
+}
+
+function load_ai_insight(competitor_name, container) {
+	const section = container.find('#ai-insight-section');
+	const threat_colors = { High: '#d13438', Medium: '#e8a33d', Low: '#29a745' };
+
+	const render = (insight) => {
+		let html = '';
+
+		if (insight) {
+			const color = threat_colors[insight.threat_level] || '#8d99a6';
+			html += `
+				<div style="border: 1px solid #d1d8dd; border-radius: 6px; padding: 16px; margin-bottom: 10px;">
+					<div style="margin-bottom: 8px;">
+						<span class="indicator-pill" style="background: ${color}; color: white;">
+							${frappe.utils.escape_html(insight.threat_level || 'Unknown')} THREAT
+						</span>
+						<span class="text-muted small" style="margin-left: 8px;">
+							Generated ${frappe.datetime.str_to_user(insight.generated_on)}
+						</span>
+					</div>
+					<p><strong>Why:</strong> ${frappe.utils.escape_html(insight.threat_explanation || '-')}</p>
+					<p><strong>Market Gap Opportunities:</strong> ${frappe.utils.escape_html(insight.market_gap_opportunities || '-')}</p>
+					<p><strong>Recommended Positioning:</strong> ${frappe.utils.escape_html(insight.recommended_positioning || '-')}</p>
+				</div>
+			`;
+		} else {
+			html += '<p class="text-muted">No AI insight generated yet.</p>';
+		}
+
+		html += '<button class="btn btn-default btn-sm" id="generate-ai-insight-btn">Generate AI Insights</button>';
+		if (insight) {
+			html += '<button class="btn btn-default btn-sm" id="insight-to-action-btn" style="margin-left: 8px;">Turn this into an action</button>';
+		}
+
+		section.html(html);
+
+		section.find('#generate-ai-insight-btn').on('click', function() {
+			const btn = $(this);
+			btn.prop('disabled', true).text('Generating…');
+			frappe.show_alert('Generating insights… this may take a few seconds.');
+
+			frappe.call({
+				method: 'competitor_intel.api.generate_ai_insights',
+				args: { competitor: competitor_name },
+				callback: (r) => render(r.message),
+				error: () => {
+					frappe.msgprint('Error generating insights. Check the browser console for details.');
+					btn.prop('disabled', false).text('Generate AI Insights');
+				}
+			});
+		});
+
+		if (insight) {
+			section.find('#insight-to-action-btn').on('click', () => {
+				open_add_action_dialog(competitor_name, container, 'AI Insight', insight.name);
+			});
+		}
+	};
+
+	frappe.call({
+		method: 'competitor_intel.api.get_ai_insight',
+		args: { competitor: competitor_name },
+		callback: (r) => render(r.message)
+	});
+}
+
+function load_strategy_actions(competitor_name, container) {
+	const section = container.find('#strategy-actions-section');
+
+	frappe.call({
+		method: 'frappe.client.get_list',
+		args: {
+			doctype: 'Strategy Action',
+			filters: { competitor: competitor_name },
+			fields: ['name', 'action_title', 'category', 'priority', 'status', 'due_date'],
+			order_by: 'due_date asc',
+			limit_page_length: 0
+		},
+		callback: (r) => {
+			const rows = r.message || [];
+
+			let html = '<button class="btn btn-default btn-sm" id="add-action-btn" style="margin-bottom: 12px;">Add New Action</button>';
+
+			if (rows.length === 0) {
+				html += '<p class="text-muted">No strategy actions yet.</p>';
+			} else {
+				html += `
+					<table class="table table-bordered">
+						<thead>
+							<tr>
+								<th>Action</th><th>Category</th><th>Priority</th><th>Status</th><th>Due Date</th>
+							</tr>
+						</thead>
+						<tbody>
+							${rows.map(row => `
+								<tr>
+									<td>${frappe.utils.escape_html(row.action_title)}</td>
+									<td>${frappe.utils.escape_html(row.category || '-')}</td>
+									<td>${frappe.utils.escape_html(row.priority || '-')}</td>
+									<td>${frappe.utils.escape_html(row.status || '-')}</td>
+									<td>${row.due_date ? frappe.datetime.str_to_user(row.due_date) : '-'}</td>
+								</tr>
+							`).join('')}
+						</tbody>
+					</table>
+				`;
+			}
+
+			section.html(html);
+			section.find('#add-action-btn').on('click', () => {
+				open_add_action_dialog(competitor_name, container);
+			});
+		}
+	});
+}
+
+function open_add_action_dialog(competitor_name, container, source_type, source_reference) {
+	const dialog = new frappe.ui.Dialog({
+		title: 'Add New Action',
+		fields: [
+			{ fieldname: 'action_title', fieldtype: 'Data', label: 'Action', reqd: 1 },
+			{ fieldname: 'category', fieldtype: 'Select', label: 'Category', options: 'Pricing\nProduct\nMarketing\nSales\nPositioning\nOps' },
+			{ fieldname: 'priority', fieldtype: 'Select', label: 'Priority', options: 'High\nMedium\nLow', default: 'Medium' },
+			{ fieldname: 'status', fieldtype: 'Select', label: 'Status', options: 'Idea\nPlanned\nIn Progress\nDone\nDropped', default: 'Idea' },
+			{ fieldname: 'due_date', fieldtype: 'Date', label: 'Due Date' }
+		],
+		primary_action_label: 'Add',
+		primary_action(values) {
+			frappe.call({
+				method: 'frappe.client.insert',
+				args: {
+					doc: {
+						doctype: 'Strategy Action',
+						competitor: competitor_name,
+						source_type: source_type || '',
+						source_reference: source_reference || null,
+						action_title: values.action_title,
+						category: values.category,
+						priority: values.priority,
+						status: values.status,
+						due_date: values.due_date
+					}
+				},
+				callback: () => {
+					dialog.hide();
+					frappe.show_alert({ message: 'Action added', indicator: 'green' });
+					load_strategy_actions(competitor_name, container);
+				}
+			});
+		}
+	});
+	dialog.show();
 }

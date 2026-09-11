@@ -1,3 +1,4 @@
+import json
 import random
 
 import frappe
@@ -311,3 +312,121 @@ def get_top_competitors_by_losses(quarter_start, quarter_end):
 
 	ranked = sorted(totals.items(), key=lambda item: item[1], reverse=True)[:5]
 	return [{"competitor": name, "total_lost": total} for name, total in ranked]
+
+
+@frappe.whitelist()
+def get_ai_insight(competitor):
+	"""Moved from competitor_dashboard.py (Step 9d) — scoped to `competitor` instead of the old `analysis`."""
+	existing = frappe.get_all(
+		"AI Insight",
+		filters={"competitor": competitor},
+		fields=[
+			"name", "generated_on", "threat_level", "threat_explanation",
+			"market_gap_opportunities", "recommended_positioning"
+		],
+		order_by="generated_on desc",
+		limit_page_length=1
+	)
+	return existing[0] if existing else None
+
+
+@frappe.whitelist()
+def generate_ai_insights(competitor):
+	"""Moved from competitor_dashboard.py (Step 9d) — scoped to `competitor` instead of the old `analysis`.
+
+	Groq call logic kept as-is; missing-key error handling is Step 10.
+	"""
+	doc = frappe.get_doc("Competitor", competitor)
+
+	latest_metrics = {}
+	for row in frappe.get_all(
+		"Competitor Metric",
+		filters={"competitor": competitor},
+		fields=["metric_type", "value"],
+		order_by="metric_date desc",
+	):
+		if row.metric_type not in latest_metrics:
+			latest_metrics[row.metric_type] = row.value
+
+	qual_rows = frappe.get_all(
+		"Competitor Qualitative",
+		filters={"competitor": competitor},
+		fields=["market_position", "pricing_model", "target_audience", "key_strength", "key_weakness", "differentiation"],
+		order_by="review_date desc",
+		limit_page_length=1,
+	)
+	qual = qual_rows[0] if qual_rows else {}
+
+	if not latest_metrics and not qual:
+		frappe.throw("No metrics or qualitative notes found for this competitor yet.")
+
+	metrics_summary = ", ".join(f"{k}: {v}" for k, v in latest_metrics.items()) or "no metrics recorded"
+
+	data_summary = (
+		f"Competitor: {doc.competitor_name} (industry: {doc.industry or 'unknown'}, website: {doc.website or 'unknown'})\n"
+		f"Latest metrics: {metrics_summary}\n"
+		f"Market position: {qual.get('market_position') or 'unknown'}, pricing model: {qual.get('pricing_model') or 'unknown'}, "
+		f"target audience: {qual.get('target_audience') or 'unknown'}\n"
+		f"Strength: {qual.get('key_strength') or 'unknown'}, weakness: {qual.get('key_weakness') or 'unknown'}, "
+		f"differentiation: {qual.get('differentiation') or 'unknown'}"
+	)
+
+	prompt = f"""You are a market analyst. Based on this competitor data:
+
+{data_summary}
+
+Respond with ONLY a valid JSON object (no markdown, no code fences, no extra text) with exactly these keys:
+- "threat_level": one of "High", "Medium", "Low"
+- "threat_explanation": a 2-3 sentence explanation of the threat level
+- "market_gap_opportunities": 2-3 sentences on gaps in the market this competitor isn't covering
+- "recommended_positioning": 2-3 sentences on how to position against this competitor
+"""
+
+	response = requests.post(
+		"https://api.groq.com/openai/v1/chat/completions",
+		headers={
+			"Authorization": f"Bearer {frappe.conf.groq_api_key}",
+			"Content-Type": "application/json"
+		},
+		json={
+			"model": "llama-3.3-70b-versatile",
+			"messages": [{"role": "user", "content": prompt}],
+			"temperature": 0.4
+		},
+		timeout=30
+	)
+
+	if response.status_code != 200:
+		frappe.throw(f"Groq API error: {response.status_code} - {response.text}")
+
+	result = response.json()
+	content = result["choices"][0]["message"]["content"].strip()
+
+	# Models sometimes wrap JSON in code fences despite instructions -- strip if present
+	if content.startswith("```"):
+		content = content.strip("`")
+		content = content.replace("json\n", "", 1) if content.startswith("json") else content
+
+	try:
+		parsed = json.loads(content)
+	except json.JSONDecodeError:
+		frappe.throw(f"Could not parse AI response as JSON: {content}")
+
+	# One insight record per competitor: update if exists, else create new
+	existing = frappe.get_all("AI Insight", filters={"competitor": competitor}, limit_page_length=1)
+
+	if existing:
+		insight_doc = frappe.get_doc("AI Insight", existing[0].name)
+	else:
+		insight_doc = frappe.new_doc("AI Insight")
+		insight_doc.competitor = competitor
+
+	insight_doc.threat_level = parsed.get("threat_level")
+	insight_doc.threat_explanation = parsed.get("threat_explanation")
+	insight_doc.market_gap_opportunities = parsed.get("market_gap_opportunities")
+	insight_doc.recommended_positioning = parsed.get("recommended_positioning")
+	insight_doc.generated_on = frappe.utils.now()
+	insight_doc.save(ignore_permissions=True)
+	frappe.db.commit()
+
+	return insight_doc.as_dict()
