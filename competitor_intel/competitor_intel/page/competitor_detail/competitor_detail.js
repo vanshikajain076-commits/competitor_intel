@@ -60,12 +60,22 @@ frappe.pages['competitor-detail'].refresh = function(wrapper) {
 				</div>
 				<div style="margin-bottom: 24px;">
 					<h4>Profile &amp; Benchmarking</h4>
+					<div style="margin-bottom: 24px;">
+						<h5>Metrics</h5>
+						<div id="metrics-section"></div>
+					</div>
+					<div>
+						<h5>Qualitative Notes</h5>
+						<div id="qualitative-notes"></div>
+					</div>
 				</div>
 			`);
 
 			load_loss_trend_chart(competitor_name, container);
 			load_top_loss_reasons(competitor_name, container);
 			setup_month_so_far_button(competitor_name, container);
+			load_metrics_chart(competitor_name, container);
+			load_qualitative_notes(competitor_name, container);
 		},
 		error: () => {
 			container.html(`<p class="text-muted">Could not load competitor "${frappe.utils.escape_html(competitor_name)}".</p>`);
@@ -204,5 +214,169 @@ function setup_month_so_far_button(competitor_name, container) {
 				panel.html(html);
 			}
 		});
+	});
+}
+
+function load_metrics_chart(competitor_name, container) {
+	frappe.call({
+		method: 'frappe.client.get_list',
+		args: {
+			doctype: 'Competitor Metric',
+			filters: { competitor: competitor_name },
+			fields: ['metric_type', 'metric_date', 'value'],
+			order_by: 'metric_date asc',
+			limit_page_length: 0
+		},
+		callback: (r) => {
+			const rows = r.message || [];
+			const section = container.find('#metrics-section');
+
+			if (rows.length === 0) {
+				section.html('<p class="text-muted">No metrics recorded yet.</p>');
+				return;
+			}
+
+			const by_type = {};
+			rows.forEach(row => {
+				if (!by_type[row.metric_type]) by_type[row.metric_type] = [];
+				by_type[row.metric_type].push(row);
+			});
+
+			const types = Object.keys(by_type).sort();
+			const default_type = types.reduce(
+				(best, t) => (by_type[t].length > by_type[best].length ? t : best),
+				types[0]
+			);
+
+			section.html(`
+				<div style="margin-bottom: 8px;">
+					<label for="competitor-metric-select" style="font-weight: 600; margin-right: 8px;">Metric:</label>
+					<select id="competitor-metric-select" class="form-control" style="display: inline-block; width: auto;"></select>
+				</div>
+				<div id="competitor-metric-chart"></div>
+			`);
+
+			const select = section.find('#competitor-metric-select');
+			select.html(
+				types.map(t => `<option value="${frappe.utils.escape_html(t)}">${frappe.utils.escape_html(t)}</option>`).join('')
+			);
+			select.val(default_type);
+
+			const render_metric = (metric_type) => {
+				const chart_el = section.find('#competitor-metric-chart')[0];
+				const series = by_type[metric_type] || [];
+				$(chart_el).empty();
+				new frappe.Chart(chart_el, {
+					title: metric_type,
+					data: {
+						labels: series.map(row => row.metric_date),
+						datasets: [{ name: metric_type, values: series.map(row => row.value) }]
+					},
+					type: 'line',
+					height: 240,
+					colors: ['#7cd6fd']
+				});
+			};
+
+			render_metric(default_type);
+			select.off('change').on('change', () => render_metric(select.val()));
+		}
+	});
+}
+
+function load_qualitative_notes(competitor_name, container) {
+	frappe.call({
+		method: 'frappe.client.get_list',
+		args: {
+			doctype: 'Competitor Qualitative',
+			filters: { competitor: competitor_name },
+			fields: [
+				'review_date', 'market_position', 'pricing_model',
+				'target_audience', 'key_strength', 'key_weakness', 'differentiation'
+			],
+			order_by: 'review_date desc',
+			limit_page_length: 0
+		},
+		callback: (r) => {
+			const rows = r.message || [];
+			const el = container.find('#qualitative-notes');
+
+			if (rows.length === 0) {
+				el.html('<p class="text-muted">No qualitative notes yet.</p>');
+				return;
+			}
+
+			const [latest, ...older] = rows;
+
+			const field_row = (label, value) => `
+				<div style="margin-bottom: 8px;">
+					<div class="text-muted small">${label}</div>
+					<div>${value ? frappe.utils.escape_html(value) : '-'}</div>
+				</div>
+			`;
+
+			const full_details = (row) => `
+				${field_row('Market Position', row.market_position)}
+				${field_row('Pricing Model', row.pricing_model)}
+				${field_row('Target Audience', row.target_audience)}
+				${field_row('Key Strength', row.key_strength)}
+				${field_row('Key Weakness', row.key_weakness)}
+				${field_row('Differentiation', row.differentiation)}
+			`;
+
+			let html = `
+				<div style="border: 1px solid #d1d8dd; border-radius: 6px; padding: 16px; margin-bottom: 16px;">
+					<div class="text-muted small" style="margin-bottom: 8px;">
+						Most recent — ${frappe.datetime.str_to_user(latest.review_date)}
+					</div>
+					${full_details(latest)}
+				</div>
+			`;
+
+			if (older.length > 0) {
+				const label = `${older.length} earlier note${older.length > 1 ? 's' : ''}`;
+				html += `
+					<div>
+						<a href="#" id="qualitative-history-toggle">Show ${label}</a>
+						<div id="qualitative-history-list" style="display: none; margin-top: 10px;"></div>
+					</div>
+				`;
+			}
+
+			el.html(html);
+
+			if (older.length > 0) {
+				const list_el = el.find('#qualitative-history-list');
+				list_el.html(
+					older.map(row => `
+						<div style="border: 1px solid #ecf0f2; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+							<div>
+								<a href="#" class="qualitative-history-item-toggle">
+									${frappe.datetime.str_to_user(row.review_date)} —
+									${frappe.utils.escape_html(row.market_position || '-')} ·
+									${frappe.utils.escape_html(row.pricing_model || '-')}
+								</a>
+							</div>
+							<div class="qualitative-history-item-details" style="display: none; margin-top: 8px;">
+								${full_details(row)}
+							</div>
+						</div>
+					`).join('')
+				);
+
+				const label = `${older.length} earlier note${older.length > 1 ? 's' : ''}`;
+				el.find('#qualitative-history-toggle').on('click', function(e) {
+					e.preventDefault();
+					const currently_visible = list_el.is(':visible');
+					list_el.slideToggle();
+					$(this).text(currently_visible ? `Show ${label}` : `Hide ${label}`);
+				});
+
+				list_el.find('.qualitative-history-item-toggle').on('click', function(e) {
+					e.preventDefault();
+					$(this).closest('div').next('.qualitative-history-item-details').slideToggle();
+				});
+			}
+		}
 	});
 }
