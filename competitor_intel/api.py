@@ -9,6 +9,12 @@ from competitor_intel.loss_intelligence import collect_loss_data
 
 MOCK_API_BASE = "http://localhost:5001"
 
+# Groq's model lineup changes over time (deprecations, plan-tier gating, etc.) —
+# verified against the live /v1/models list for this site's API key on 2026-09-11.
+# If this starts 404ing again, check https://console.groq.com/docs/models for what
+# your key currently has access to and swap the name here.
+GROQ_MODEL = "openai/gpt-oss-120b"
+
 METRIC_MAP = {
     "monthly_visits": "Monthly Visits",
     "page_views": "Page Views",
@@ -389,12 +395,27 @@ Respond with ONLY a valid JSON object (no markdown, no code fences, no extra tex
 			"Content-Type": "application/json"
 		},
 		json={
-			"model": "llama-3.3-70b-versatile",
+			"model": GROQ_MODEL,
 			"messages": [{"role": "user", "content": prompt}],
 			"temperature": 0.4
 		},
 		timeout=30
 	)
+
+	if response.status_code == 404:
+		try:
+			error_code = response.json().get("error", {}).get("code")
+		except ValueError:
+			error_code = None
+
+		if error_code == "model_not_found":
+			frappe.throw(
+				f"Groq model \"{GROQ_MODEL}\" isn't available to this API key (404 model_not_found). "
+				"Groq's model lineup changes over time — models get deprecated or moved behind higher "
+				"plan tiers — so this hardcoded name can go stale again. Check "
+				"https://console.groq.com/docs/models (or GET /v1/models with your key) for what's "
+				"currently available, then update GROQ_MODEL in competitor_intel/api.py."
+			)
 
 	if response.status_code != 200:
 		frappe.throw(f"Groq API error: {response.status_code} - {response.text}")
