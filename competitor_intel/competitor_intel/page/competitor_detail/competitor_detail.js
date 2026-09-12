@@ -17,7 +17,7 @@ frappe.pages['competitor-detail'].refresh = function(wrapper) {
 	const container = page.main.find('#competitor-detail-content');
 
 	if (!competitor_name) {
-		container.html('<p class="text-muted">No competitor specified.</p>');
+		frappe.set_route('competitor-overview');
 		return;
 	}
 
@@ -278,6 +278,15 @@ function load_metrics_chart(competitor_name, container) {
 				const chart_el = section.find('#competitor-metric-chart')[0];
 				const series = by_type[metric_type] || [];
 				$(chart_el).empty();
+				// A single data point has nothing to draw a trend line between, and
+				// frappe-charts silently renders a bare moveto for it (no visible mark
+				// at all) — same underlying gap-handling limitation as the Overview
+				// comparison chart, just without that chart's 0-fill-across-competitors
+				// step to turn it into a visibly misleading line. Since this chart only
+				// ever holds one dataset, hideLine/showDots (whole-chart-only options in
+				// this frappe-charts version) are enough on their own here — no DOM pass
+				// needed like the Overview chart requires for its multi-dataset case.
+				const single_point = series.length === 1;
 				new frappe.Chart(chart_el, {
 					title: metric_type,
 					data: {
@@ -286,7 +295,9 @@ function load_metrics_chart(competitor_name, container) {
 					},
 					type: 'line',
 					height: 240,
-					colors: ['#7cd6fd']
+					colors: ['#7cd6fd'],
+					axisOptions: { shortenYAxisNumbers: true },
+					lineOptions: single_point ? { hideLine: true, showDots: true } : {}
 				});
 			};
 

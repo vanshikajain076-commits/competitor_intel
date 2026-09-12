@@ -225,9 +225,21 @@ def get_comparison_trend(metric_type="Monthly Visits"):
 	sorted_dates = sorted(all_dates)
 	datasets = []
 	for name, values_by_date in series.items():
+		# frappe-charts (bundled here, v2.0.0-rc27) has no real "skip this point" gap
+		# support for line charts: its own dataset sanitizer only coerces undefined/NaN
+		# to 0 (and still requires every series to be as long as `labels`), while a bare
+		# `null` slips through uncoerced and breaks path generation (`<path> attribute d:
+		# ... "M485,undefined"` in the console). Confirmed by reproducing it live before
+		# this fix. 0 is a known imperfect stand-in for "no data that day" rather than
+		# "measured zero" — but it's the only value this chart can actually render here.
+		# Also flag which of those values are real vs. the 0 stand-in above, so the
+		# chart layer can tell a genuine single-day measurement apart from a mostly-
+		# empty series — otherwise a competitor with exactly one real data point
+		# reads as a misleading line rising from an implied zero.
 		datasets.append({
 			"name": name,
-			"values": [values_by_date.get(d) for d in sorted_dates],
+			"values": [values_by_date.get(d, 0) for d in sorted_dates],
+			"real_flags": [d in values_by_date for d in sorted_dates],
 		})
 	return {"labels": sorted_dates, "datasets": datasets}
 
@@ -338,10 +350,10 @@ def get_ai_insight(competitor):
 
 @frappe.whitelist()
 def generate_ai_insights(competitor):
-	"""Moved from competitor_dashboard.py (Step 9d) — scoped to `competitor` instead of the old `analysis`.
+	"""Moved from competitor_dashboard.py (Step 9d) — scoped to `competitor` instead of the old `analysis`."""
+	if not frappe.conf.get("groq_api_key"):
+		frappe.throw("Groq API key not configured. Ask your administrator to set one up.")
 
-	Groq call logic kept as-is; missing-key error handling is Step 10.
-	"""
 	doc = frappe.get_doc("Competitor", competitor)
 
 	latest_metrics = {}

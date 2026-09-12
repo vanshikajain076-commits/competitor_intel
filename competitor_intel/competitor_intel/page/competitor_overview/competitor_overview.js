@@ -154,27 +154,77 @@ frappe.pages['competitor-overview'].on_page_load = function(wrapper) {
 		});
 	}
 
+	let comparison_chart_observer = null;
+
 	function load_chart(metric_type) {
 		frappe.call({
 			method: 'competitor_intel.api.get_comparison_trend',
 			args: { metric_type },
 			callback: (r) => {
+				if (comparison_chart_observer) {
+					comparison_chart_observer.disconnect();
+					comparison_chart_observer = null;
+				}
 				const el = page.main.find('#comparison-chart')[0];
 				$(el).empty();
 				if (!r.message || !r.message.labels || r.message.labels.length === 0) {
 					$(el).html('<p class="text-muted">No metric history yet across your competitors.</p>');
 					return;
 				}
+				const datasets = r.message.datasets;
 				new frappe.Chart(el, {
 					title: `${metric_type} — All Competitors`,
 					data: {
 						labels: r.message.labels,
-						datasets: r.message.datasets
+						datasets: datasets
 					},
 					type: 'line',
 					height: 280,
-					colors: ['#7cd6fd', '#ff5858', '#98d85b', '#ffa00a', '#743ee2']
+					colors: ['#7cd6fd', '#ff5858', '#98d85b', '#ffa00a', '#743ee2'],
+					axisOptions: { shortenYAxisNumbers: true },
+					lineOptions: { showDots: true }
 				});
+
+				// frappe-charts (bundled here, v2.0.0-rc27) only exposes hideLine/showDots
+				// as whole-chart options (AxisChart.js reads them off `this.lineOptions` for
+				// every line dataset) — there's no per-dataset switch. This chart overlays one
+				// line per competitor, and get_comparison_trend 0-fills any date a competitor
+				// has no real measurement for, so a competitor with exactly one real data point
+				// would otherwise draw as a line rising from that implied zero. Since the library
+				// can't mix "line" and "dot only" per dataset, do it as a DOM pass after render:
+				// dots are turned on globally above (so frappe-charts computes correct pixel
+				// positions for every point), then per dataset we either hide the connecting
+				// line and every dot but the one real one (single-measurement competitors) or
+				// hide the auto-added dots so multi-point lines look exactly as before.
+				//
+				// BaseChart.js unconditionally schedules a second internal render ~700ms
+				// after first mount (`configure()`'s `setTimeout(() => this.update(...))`,
+				// INIT_CHART_UPDATE_TIMEOUT) that rebuilds these SVG nodes from scratch,
+				// wiping any DOM changes made right after construction. Reapplying via a
+				// MutationObserver (instead of a guessed delay) makes this survive that
+				// rebuild and any future one, without depending on the library's internal
+				// timing constants.
+				const apply_single_point_style = () => {
+					datasets.forEach((d, i) => {
+						const real_idx = (d.real_flags || [])
+							.reduce((acc, is_real, idx) => (is_real ? acc.concat(idx) : acc), []);
+						const group = $(el).find(`.dataset-line.dataset-${i}`);
+						if (real_idx.length === 1) {
+							group.find('path.line-graph-path').hide();
+							group.find('circle[data-point-index]').each(function() {
+								const is_the_one_real_point = Number($(this).attr('data-point-index')) === real_idx[0];
+								$(this).toggle(is_the_one_real_point);
+							});
+						} else {
+							group.find('path.line-graph-path').show();
+							group.find('circle[data-point-index]').hide();
+						}
+					});
+				};
+
+				apply_single_point_style();
+				comparison_chart_observer = new MutationObserver(apply_single_point_style);
+				comparison_chart_observer.observe(el, { childList: true, subtree: true });
 			}
 		});
 	}
