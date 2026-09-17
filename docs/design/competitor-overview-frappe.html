@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Competitor Overview — Frappe UI style</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Espresso-style neutral scale (Tailwind gray) */
+    --g-25:#fcfcfd;
+    --g-50:#f9fafb;
+    --g-100:#f3f4f6;
+    --g-200:#e5e7eb;
+    --g-300:#d1d5db;
+    --g-400:#9ca3af;
+    --g-500:#6b7280;
+    --g-600:#4b5563;
+    --g-700:#374151;
+    --g-800:#1f2937;
+    --g-900:#111827;
+
+    --blue-50:#eff6ff;
+    --blue-100:#dbeafe;
+    --blue-600:#2563eb;
+    --blue-700:#1d4ed8;
+
+    --red-50:#fef2f2;
+    --red-600:#dc2626;
+
+    --green-50:#f0fdf4;
+    --green-600:#16a34a;
+
+    --amber-50:#fffbeb;
+    --amber-600:#d97706;
+
+    --purple-50:#faf5ff;
+    --purple-600:#9333ea;
+
+    --radius-sm:4px;
+    --radius-md:6px;
+    --radius-lg:8px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--g-50);
+    color:var(--g-900);
+    font-family:"Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size:13px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none;}
+
+  .shell{
+    display:flex;
+    min-height:100vh;
+  }
+
+  /* ---------------- SIDEBAR ---------------- */
+  .sidebar{
+    width:224px;
+    flex-shrink:0;
+    background:#fff;
+    border-right:1px solid var(--g-200);
+    padding:14px 10px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 8px 14px;
+    margin-bottom:6px;
+    border-bottom:1px solid var(--g-100);
+  }
+  .brand .mark{
+    width:24px;height:24px;border-radius:6px;
+    background:var(--blue-600);
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-weight:700;font-size:12px;
+    flex-shrink:0;
+  }
+  .brand .name{font-weight:600;font-size:13.5px;color:var(--g-900);}
+  .brand .sub{font-size:11px;color:var(--g-400);}
+
+  .nav-item{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    padding:7px 9px;
+    border-radius:var(--radius-md);
+    color:var(--g-600);
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+  }
+  .nav-item svg{width:15px;height:15px;stroke:var(--g-500);flex-shrink:0;}
+  .nav-item:hover{background:var(--g-50);}
+  .nav-item.active{background:var(--g-100);color:var(--g-900);}
+  .nav-item.active svg{stroke:var(--g-900);}
+  .nav-group-label{
+    font-size:11px;
+    color:var(--g-400);
+    font-weight:500;
+    padding:14px 9px 4px;
+  }
+
+  /* ---------------- MAIN ---------------- */
+  .main{
+    flex:1;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .topbar{
+    height:52px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 20px;
+    background:#fff;
+    border-bottom:1px solid var(--g-200);
+  }
+  .crumb{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:13px;
+    color:var(--g-500);
+  }
+  .crumb b{color:var(--g-900);font-weight:600;}
+  .topbar-right{display:flex;align-items:center;gap:10px;}
+  .icon-btn{
+    width:30px;height:30px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:var(--radius-md);
+    color:var(--g-500);
+    cursor:pointer;
+  }
+  .icon-btn:hover{background:var(--g-50);}
+  .icon-btn svg{width:16px;height:16px;stroke:currentColor;}
+  .avatar-round{
+    width:28px;height:28px;border-radius:50%;
+    background:var(--blue-100);color:var(--blue-700);
+    display:flex;align-items:center;justify-content:center;
+    font-size:11.5px;font-weight:600;
+  }
+
+  .content{
+    padding:22px 24px 60px;
+    max-width:1180px;
+  }
+
+  .page-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-bottom:18px;
+  }
+  .page-title{
+    font-size:20px;
+    font-weight:600;
+    color:var(--g-900);
+    letter-spacing:-0.01em;
+  }
+  .page-actions{display:flex;align-items:center;gap:8px;}
+
+  /* Frappe UI style buttons */
+  .btn{
+    font-family:inherit;
+    font-size:12.5px;
+    font-weight:500;
+    border-radius:var(--radius-md);
+    padding:6.5px 12px;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    border:1px solid transparent;
+  }
+  .btn svg{width:13px;height:13px;}
+  .btn-secondary{
+    background:#fff;
+    border-color:var(--g-300);
+    color:var(--g-700);
+  }
+  .btn-secondary:hover{background:var(--g-50);}
+  .btn-primary{
+    background:var(--blue-600);
+    color:#fff;
+  }
+  .btn-primary:hover{background:var(--blue-700);}
+  .btn-ghost{
+    background:none;
+    color:var(--g-600);
+  }
+  .btn-ghost:hover{background:var(--g-100);}
+
+  .dropdown-btn{
+    background:#fff;
+    border:1px solid var(--g-300);
+    border-radius:var(--radius-md);
+    padding:6.5px 10px;
+    font-size:12.5px;
+    color:var(--g-700);
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+  }
+  .dropdown-btn svg{width:12px;height:12px;stroke:var(--g-400);}
+
+  /* ---------------- CARD ---------------- */
+  .card{
+    background:#fff;
+    border:1px solid var(--g-200);
+    border-radius:var(--radius-lg);
+  }
+  .card-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:13px 16px;
+    border-bottom:1px solid var(--g-100);
+  }
+  .card-head h3{
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--g-900);
+    margin:0;
+  }
+  .card-head .meta{font-size:12px;color:var(--g-400);}
+  .card-body{padding:16px;}
+
+  /* ---------------- KPI ROW ---------------- */
+  .kpi-row{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:12px;
+    margin-bottom:12px;
+  }
+  .kpi-card{
+    background:#fff;
+    border:1px solid var(--g-200);
+    border-radius:var(--radius-lg);
+    padding:14px 16px;
+  }
+  .kpi-card .label{
+    font-size:12px;
+    color:var(--g-500);
+    font-weight:500;
+    margin-bottom:8px;
+  }
+  .kpi-card .value{
+    font-size:22px;
+    font-weight:600;
+    color:var(--g-900);
+    letter-spacing:-0.01em;
+  }
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:11px;
+    font-weight:500;
+    padding:2.5px 7px 2.5px 6px;
+    border-radius:100px;
+  }
+  .badge .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+  .badge.red{background:var(--red-50);color:var(--red-600);}
+  .badge.red .dot{background:var(--red-600);}
+  .badge.green{background:var(--green-50);color:var(--green-600);}
+  .badge.green .dot{background:var(--green-600);}
+  .badge.amber{background:var(--amber-50);color:var(--amber-600);}
+  .badge.amber .dot{background:var(--amber-600);}
+  .badge.gray{background:var(--g-100);color:var(--g-600);}
+  .badge.gray .dot{background:var(--g-500);}
+  .badge.purple{background:var(--purple-50);color:var(--purple-600);}
+  .badge.purple .dot{background:var(--purple-600);}
+  .badge.blue{background:var(--blue-50);color:var(--blue-700);}
+  .badge.blue .dot{background:var(--blue-600);}
+
+  .kpi-card .trend-line{margin-top:9px;display:flex;align-items:center;gap:6px;}
+  .kpi-card .trend-line span.small{font-size:11.5px;color:var(--g-400);}
+
+  .live-strip{
+    grid-column:1/-1;
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-size:12px;
+    color:var(--g-400);
+    padding:2px 2px 0;
+  }
+  .live-strip .dot{width:6px;height:6px;border-radius:50%;background:var(--red-600);flex-shrink:0;}
+
+  /* ---------------- TWO COL ---------------- */
+  .grid-2{
+    display:grid;
+    grid-template-columns:1.05fr 1fr;
+    gap:12px;
+    margin-bottom:12px;
+  }
+
+  /* ranked list */
+  .rank-row{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:9px 0;
+  }
+  .rank-row + .rank-row{border-top:1px solid var(--g-100);}
+  .co-avatar{
+    width:24px;height:24px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:10.5px;font-weight:600;color:#fff;
+    flex-shrink:0;
+  }
+  .rank-row .name{
+    width:106px;
+    flex-shrink:0;
+    font-size:12.5px;
+    font-weight:500;
+    color:var(--g-800);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .rank-row .bar-track{
+    flex:1;
+    height:6px;
+    background:var(--g-100);
+    border-radius:100px;
+    overflow:hidden;
+  }
+  .rank-row .bar-fill{height:100%;border-radius:100px;background:var(--red-600);}
+  .rank-row .val{
+    width:20px;
+    text-align:right;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--g-900);
+    font-variant-numeric:tabular-nums;
+  }
+  .empty-note{
+    margin-top:12px;
+    padding-top:12px;
+    border-top:1px dashed var(--g-200);
+    font-size:12px;
+    color:var(--g-400);
+  }
+  .empty-note b{color:var(--g-600);font-weight:500;}
+
+  .quad-caption{font-size:11.5px;color:var(--g-400);margin-top:10px;}
+
+  /* ---------------- TABS ---------------- */
+  .tabs{
+    display:flex;
+    gap:20px;
+    border-bottom:1px solid var(--g-100);
+    padding:0 16px;
+  }
+  .tabs button{
+    font-family:inherit;
+    font-size:12.5px;
+    font-weight:500;
+    background:none;
+    border:none;
+    color:var(--g-500);
+    padding:11px 0;
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    position:relative;
+    top:1px;
+  }
+  .tabs button.active{color:var(--blue-600);border-bottom-color:var(--blue-600);}
+
+  .chart-legend{display:flex;gap:16px;flex-wrap:wrap;padding:12px 16px 16px;}
+  .chart-legend .item{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--g-500);}
+  .chart-legend .item b{color:var(--g-800);font-weight:600;}
+  .chart-legend .sw{width:12px;height:2px;border-radius:2px;}
+
+  /* ---------------- TABLE (Frappe list view style) ---------------- */
+  .table-toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px;
+    padding:12px 16px;
+    border-bottom:1px solid var(--g-100);
+  }
+  .chips{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{
+    font-size:12px;
+    font-weight:500;
+    color:var(--g-600);
+    background:#fff;
+    border:1px solid var(--g-200);
+    padding:5px 10px;
+    border-radius:100px;
+    cursor:pointer;
+  }
+  .chip.active{background:var(--g-900);color:#fff;border-color:var(--g-900);}
+
+  table{width:100%;border-collapse:collapse;}
+  thead th{
+    text-align:left;
+    font-weight:500;
+    color:var(--g-500);
+    font-size:11.5px;
+    padding:9px 16px;
+    background:var(--g-25);
+    border-bottom:1px solid var(--g-100);
+  }
+  thead th.num,tbody td.num{text-align:right;}
+  thead th:first-child, tbody td:first-child{padding-left:16px;}
+  tbody tr{cursor:pointer;}
+  tbody tr:hover{background:var(--g-50);}
+  tbody td{
+    padding:11px 16px;
+    border-bottom:1px solid var(--g-100);
+    font-size:12.5px;
+    color:var(--g-700);
+    vertical-align:middle;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  .co-cell{display:flex;align-items:center;gap:9px;}
+  .co-cell .co-name{font-weight:500;color:var(--g-900);}
+  .num-cell{font-variant-numeric:tabular-nums;color:var(--g-800);}
+  .muted-cell{color:var(--g-400);}
+  .strength-txt{color:var(--green-600);}
+  .weak-txt{color:var(--red-600);}
+
+  .empty-banner{
+    margin:12px 16px 16px;
+    background:var(--g-25);
+    border:1px dashed var(--g-200);
+    border-radius:var(--radius-md);
+    padding:12px 14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .empty-banner .left{font-size:12.5px;color:var(--g-500);}
+  .empty-banner .left b{color:var(--g-700);font-weight:500;}
+  .empty-banner .left span.names{color:var(--g-400);}
+  .empty-banner .link-btn{
+    font-family:inherit;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--blue-600);
+    background:none;
+    border:none;
+    cursor:pointer;
+  }
+
+  @media (max-width:900px){
+    .sidebar{display:none;}
+    .kpi-row{grid-template-columns:repeat(2,1fr);}
+    .grid-2{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="brand">
+      <div class="mark">F</div>
+      <div>
+        <div class="name">Acme CRM</div>
+        <div class="sub">frappe.cloud</div>
+      </div>
+    </div>
+
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Leads
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>
+      Deals
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M4 8v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8"/><path d="M10 12h4"/></svg>
+      Contacts
+    </div>
+
+    <div class="nav-group-label">Insights</div>
+    <div class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      Competitor overview
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
+      Reports
+    </div>
+
+    <div class="nav-group-label">Workspace</div>
+    <div class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      Settings
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="crumb">Home / <b>Competitor Overview</b></div>
+      <div class="topbar-right">
+        <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
+        <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+        <div class="avatar-round">AK</div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="page-head">
+        <div class="page-title">Competitor overview</div>
+        <div class="page-actions">
+          <button class="dropdown-btn">
+            This quarter
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <button class="btn btn-secondary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
+            Filter
+          </button>
+          <button class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Add competitor
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI ROW -->
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="label">Opportunities lost</div>
+          <div class="value">5</div>
+          <div class="trend-line">
+            <span class="badge red"><span class="dot"></span>+2</span>
+            <span class="small">vs last month</span>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Opportunity value lost</div>
+          <div class="value">₹3,600</div>
+          <div class="trend-line">
+            <span class="badge green"><span class="dot"></span>−₹1,200</span>
+            <span class="small">vs last month</span>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Quotations lost</div>
+          <div class="value">7</div>
+          <div class="trend-line">
+            <span class="badge red"><span class="dot"></span>+3</span>
+            <span class="small">vs last month</span>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Quotation value lost</div>
+          <div class="value">₹13,400</div>
+          <div class="trend-line">
+            <span class="badge red"><span class="dot"></span>+₹4,100</span>
+            <span class="small">vs last month</span>
+          </div>
+        </div>
+        <div class="live-strip">
+          <span class="dot"></span>
+          Sep 1 – Sep 15, 2026 · updating live. Click any number to open the filtered list.
+        </div>
+      </div>
+
+      <!-- TWO COLUMN -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head">
+            <h3>Who we're losing to</h3>
+            <span class="meta">Jul 1 – Sep 30</span>
+          </div>
+          <div class="card-body">
+            <div class="rank-row">
+              <div class="co-avatar" style="background:#2563eb;">S</div>
+              <span class="name">Salesforce</span>
+              <div class="bar-track"><div class="bar-fill" style="width:100%;"></div></div>
+              <span class="val">4</span>
+            </div>
+            <div class="rank-row">
+              <div class="co-avatar" style="background:#d97706;">S</div>
+              <span class="name">SAP</span>
+              <div class="bar-track"><div class="bar-fill" style="width:75%;background:#e79a3d;"></div></div>
+              <span class="val">3</span>
+            </div>
+            <div class="rank-row">
+              <div class="co-avatar" style="background:#16a34a;">Z</div>
+              <span class="name">Zoho CRM</span>
+              <div class="bar-track"><div class="bar-fill" style="width:50%;background:#eab08c;"></div></div>
+              <span class="val">2</span>
+            </div>
+            <div class="empty-note">No deals lost to <b>HubSpot</b>, <b>Freshworks</b> or <b>Pipedrive</b> this quarter.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Competitive position</h3>
+            <span class="meta">Traffic vs. bounce</span>
+          </div>
+          <div class="card-body" style="padding-top:8px;">
+            <svg viewBox="0 0 400 230" width="100%" height="auto">
+              <line x1="200" y1="8" x2="200" y2="200" stroke="#f3f4f6" stroke-width="1"/>
+              <line x1="30" y1="104" x2="380" y2="104" stroke="#f3f4f6" stroke-width="1"/>
+
+              <text x="36" y="22" font-size="10" fill="#9ca3af" font-family="Inter">Small &amp; sticky</text>
+              <text x="278" y="22" font-size="10" fill="#9ca3af" font-family="Inter">Strong &amp; sticky</text>
+              <text x="36" y="192" font-size="10" fill="#9ca3af" font-family="Inter">Low visibility</text>
+              <text x="266" y="192" font-size="10" fill="#9ca3af" font-family="Inter">High traffic, leaky</text>
+
+              <text x="200" y="218" font-size="10" fill="#6b7280" font-family="Inter" text-anchor="middle">Monthly visits →</text>
+
+              <circle cx="300" cy="86" r="6.5" fill="#2563eb"/>
+              <text x="300" y="70" font-size="10.5" fill="#111827" font-family="Inter" text-anchor="middle" font-weight="600">Salesforce</text>
+
+              <circle cx="292" cy="164" r="6.5" fill="#d97706"/>
+              <text x="292" y="182" font-size="10.5" fill="#111827" font-family="Inter" text-anchor="middle" font-weight="600">SAP</text>
+
+              <circle cx="188" cy="92" r="5.5" fill="#16a34a"/>
+              <text x="188" y="78" font-size="10.5" fill="#111827" font-family="Inter" text-anchor="middle" font-weight="600">Zoho CRM</text>
+
+              <circle cx="78" cy="60" r="5.5" fill="#9333ea"/>
+              <text x="78" y="46" font-size="10.5" fill="#111827" font-family="Inter" text-anchor="middle" font-weight="600">LocalConsult</text>
+            </svg>
+            <div class="quad-caption">4 of 7 tracked competitors have enough data to plot.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TREND -->
+      <div class="card" style="margin-bottom:12px;">
+        <div class="card-head">
+          <h3>Trend</h3>
+          <span class="meta">Indexed to 100 at Apr 2026</span>
+        </div>
+        <div class="tabs">
+          <button class="active">Monthly visits</button>
+          <button>Bounce rate</button>
+          <button>Pages per visit</button>
+        </div>
+        <div style="padding:16px;">
+          <svg viewBox="0 0 900 200" width="100%" height="auto">
+            <line x1="36" y1="14" x2="36" y2="172" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="36" y1="172" x2="876" y2="172" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="36" y1="93" x2="876" y2="93" stroke="#f3f4f6" stroke-width="1"/>
+            <text x="28" y="176" font-size="9.5" fill="#9ca3af" text-anchor="end" font-family="Inter">100</text>
+            <text x="28" y="97" font-size="9.5" fill="#9ca3af" text-anchor="end" font-family="Inter">115</text>
+            <text x="28" y="18" font-size="9.5" fill="#9ca3af" text-anchor="end" font-family="Inter">130</text>
+
+            <text x="78" y="188" font-size="9.5" fill="#9ca3af" text-anchor="middle" font-family="Inter">Apr</text>
+            <text x="216" y="188" font-size="9.5" fill="#9ca3af" text-anchor="middle" font-family="Inter">May</text>
+            <text x="354" y="188" font-size="9.5" fill="#9ca3af" text-anchor="middle" font-family="Inter">Jun</text>
+            <text x="492" y="188" font-size="9.5" fill="#9ca3af" text-anchor="middle" font-family="Inter">Jul</text>
+            <text x="630" y="188" font-size="9.5" fill="#9ca3af" text-anchor="middle" font-family="Inter">Aug</text>
+            <text x="768" y="188" font-size="9.5" fill="#9ca3af" text-anchor="middle" font-family="Inter">Sep</text>
+
+            <polyline fill="none" stroke="#9333ea" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"
+              points="78,172 216,159 354,163 492,142 630,127 768,100" />
+            <polyline fill="none" stroke="#2563eb" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"
+              points="78,172 216,166 354,159 492,161 630,153 768,147" />
+            <polyline fill="none" stroke="#d97706" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"
+              points="78,172 216,178 354,169 492,180 630,174 768,183" />
+
+            <circle cx="768" cy="100" r="3.5" fill="#9333ea"/>
+            <circle cx="768" cy="147" r="3.5" fill="#2563eb"/>
+            <circle cx="768" cy="183" r="3.5" fill="#d97706"/>
+          </svg>
+        </div>
+        <div class="chart-legend">
+          <div class="item"><span class="sw" style="background:#9333ea;"></span><b>LocalConsult</b> +22%</div>
+          <div class="item"><span class="sw" style="background:#2563eb;"></span><b>Salesforce</b> +8%</div>
+          <div class="item"><span class="sw" style="background:#d97706;"></span><b>SAP</b> −4%</div>
+        </div>
+      </div>
+
+      <!-- TABLE -->
+      <div class="card">
+        <div class="card-head">
+          <h3>Tracked competitors</h3>
+        </div>
+        <div class="table-toolbar">
+          <div class="chips">
+            <span class="chip active">All industries</span>
+            <span class="chip">SaaS</span>
+            <span class="chip">Services</span>
+            <span class="chip">Leader</span>
+            <span class="chip">Niche</span>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Competitor</th>
+              <th>Industry</th>
+              <th class="num">Monthly visits</th>
+              <th>6-mo trend</th>
+              <th class="num">Bounce rate</th>
+              <th>Position</th>
+              <th>Key strength</th>
+              <th>Key weakness</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="co-cell">
+                  <div class="co-avatar" style="background:#2563eb;">S</div>
+                  <span class="co-name">Salesforce</span>
+                </div>
+              </td>
+              <td>SaaS</td>
+              <td class="num num-cell">2,568,452</td>
+              <td><svg viewBox="0 0 56 18" width="56" height="18"><polyline fill="none" stroke="#2563eb" stroke-width="1.5" points="2,15 12,12 22,9 32,10 42,6 54,3"/></svg></td>
+              <td class="num num-cell">39.3%</td>
+              <td><span class="badge green"><span class="dot"></span>Leader</span></td>
+              <td class="strength-txt">Enterprise integrations</td>
+              <td class="weak-txt">Onboarding complexity</td>
+            </tr>
+            <tr>
+              <td>
+                <div class="co-cell">
+                  <div class="co-avatar" style="background:#d97706;">S</div>
+                  <span class="co-name">SAP</span>
+                </div>
+              </td>
+              <td>SaaS</td>
+              <td class="num num-cell">2,376,172</td>
+              <td><svg viewBox="0 0 56 18" width="56" height="18"><polyline fill="none" stroke="#d97706" stroke-width="1.5" points="2,4 12,6 22,5 32,8 42,6 54,9"/></svg></td>
+              <td class="num num-cell">71.7%</td>
+              <td><span class="badge green"><span class="dot"></span>Leader</span></td>
+              <td class="strength-txt">Brand trust</td>
+              <td class="weak-txt">Weaker client understanding</td>
+            </tr>
+            <tr>
+              <td>
+                <div class="co-cell">
+                  <div class="co-avatar" style="background:#16a34a;">Z</div>
+                  <span class="co-name">Zoho CRM</span>
+                </div>
+              </td>
+              <td>SaaS</td>
+              <td class="num num-cell">612,300</td>
+              <td class="muted-cell">Not enough data</td>
+              <td class="num num-cell">45.0%</td>
+              <td><span class="badge gray"><span class="dot"></span>Challenger</span></td>
+              <td class="strength-txt">Pricing</td>
+              <td class="weak-txt">Limited automation</td>
+            </tr>
+            <tr>
+              <td>
+                <div class="co-cell">
+                  <div class="co-avatar" style="background:#9333ea;">L</div>
+                  <span class="co-name">LocalConsult Co</span>
+                </div>
+              </td>
+              <td>Services</td>
+              <td class="num num-cell">184,020</td>
+              <td><svg viewBox="0 0 56 18" width="56" height="18"><polyline fill="none" stroke="#9333ea" stroke-width="1.5" points="2,15 12,12 22,13 32,8 42,5 54,2"/></svg></td>
+              <td class="num num-cell">31.7%</td>
+              <td><span class="badge amber"><span class="dot"></span>Niche</span></td>
+              <td class="strength-txt">Local relationships</td>
+              <td class="weak-txt">Limited scale</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="empty-banner">
+          <div class="left"><b>3 competitors</b> have no tracking data yet — <span class="names">HubSpot, Freshworks, Pipedrive</span></div>
+          <button class="link-btn">Connect a data source</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>
