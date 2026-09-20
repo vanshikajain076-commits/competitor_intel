@@ -542,6 +542,82 @@ def get_loss_kpis(period_start, period_end, prior_start, prior_end):
 
 
 @frappe.whitelist()
+def get_competitor_lifetime_stats(competitor):
+    """All-time quick stats + recent activity for the Competitor Detail page header.
+
+    Unlike collect_loss_data() (bounded to one [period_start, period_end] window and always
+    loading full docs to unpack per-deal `lost_reasons`), this only needs per-record totals,
+    the latest loss date, and a short activity feed for one competitor -- so it queries
+    Quotation/Opportunity directly through the shared "Competitor Detail" Table MultiSelect
+    child doctype instead of walking every lost deal company-wide.
+    """
+    quotations = frappe.get_all(
+        "Quotation",
+        filters=[
+            ["Competitor Detail", "competitor", "=", competitor],
+            ["Quotation", "status", "=", "Lost"],
+        ],
+        fields=["name", "customer_name", "lost_on", "grand_total"],
+        order_by="lost_on desc",
+    )
+    opportunities = frappe.get_all(
+        "Opportunity",
+        filters=[
+            ["Competitor Detail", "competitor", "=", competitor],
+            ["Opportunity", "status", "=", "Lost"],
+        ],
+        fields=["name", "title", "lost_on", "opportunity_amount"],
+        order_by="lost_on desc",
+    )
+
+    activity = [
+        {
+            "type": "Quotation",
+            "label": q.customer_name or q.name,
+            "date": str(q.lost_on) if q.lost_on else None,
+            "value": q.grand_total or 0,
+        }
+        for q in quotations
+    ] + [
+        {
+            "type": "Opportunity",
+            "label": o.title or o.name,
+            "date": str(o.lost_on) if o.lost_on else None,
+            "value": o.opportunity_amount or 0,
+        }
+        for o in opportunities
+    ]
+
+    latest_note = frappe.get_all(
+        "Competitor Qualitative",
+        filters={"competitor": competitor},
+        fields=["modified"],
+        order_by="modified desc",
+        limit_page_length=1,
+    )
+    if latest_note and latest_note[0].modified:
+        activity.append({
+            "type": "Note",
+            "label": "Qualitative note updated",
+            "date": str(latest_note[0].modified.date()),
+            "value": None,
+        })
+
+    activity = [row for row in activity if row["date"]]
+    activity.sort(key=lambda row: row["date"], reverse=True)
+
+    loss_dates = [row["date"] for row in activity if row["type"] != "Note"]
+
+    return {
+        "opportunity_count": len(opportunities),
+        "quotation_count": len(quotations),
+        "total_value_lost": sum(q.grand_total or 0 for q in quotations) + sum(o.opportunity_amount or 0 for o in opportunities),
+        "last_loss_date": max(loss_dates) if loss_dates else None,
+        "recent_activity": activity[:6],
+    }
+
+
+@frappe.whitelist()
 def get_ai_insight(competitor):
 	"""Moved from competitor_dashboard.py (Step 9d) — scoped to `competitor` instead of the old `analysis`."""
 	existing = frappe.get_all(
