@@ -9,7 +9,8 @@ app_license = "mit"
 # ------------------
 
 fixtures = [
-	{"doctype": "Custom Field", "filters": [["dt", "in", ["Competitor", "Quotation", "Opportunity"]]]}
+	{"doctype": "Custom Field", "filters": [["dt", "in", ["Competitor", "Quotation", "Opportunity"]]]},
+	{"doctype": "Property Setter", "filters": [["doc_type", "=", "Competitor"], ["field_name", "=", "website"]]},
 ]
 
 # Apps

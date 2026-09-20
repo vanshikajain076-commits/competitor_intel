@@ -37,7 +37,7 @@ Single business tracking its own competitors continuously — **not** an agency 
 | Field | Type | Notes |
 |---|---|---|
 | `industry` | Select (SaaS / E-commerce / Manufacturing / Consulting / Services / Local Business / Other) | Drives which metrics are relevant later |
-| `website` | Data | Domain only, e.g. `example.com` |
+| `website` | Data (native field, `options: URL`) | Full URL, e.g. `https://example.com` — the app strips this down to a bare domain wherever needed (e.g. for Cloudflare lookups) |
 | `logo` | Attach Image | |
 | `notes` | Small Text | |
 | `is_active` | Check, default 1 | Lets you archive a competitor without losing their history |

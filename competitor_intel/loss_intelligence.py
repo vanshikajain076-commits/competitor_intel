@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import get_first_day, get_last_day, now_datetime, nowdate
+from frappe.utils import add_days, get_first_day, get_last_day, getdate, now_datetime, nowdate
 
 
 def collect_loss_data(period_start, period_end):
@@ -98,6 +98,38 @@ def _apply(by_competitor, by_reason, competitor_names, reason_keys, stage, value
 
 		for reason_key in reason_keys:
 			competitor_bucket["reasons"][reason_key] = competitor_bucket["reasons"].get(reason_key, 0) + 1
+
+
+def bucket_ranges(period_start, period_end, target_buckets=8):
+	"""Split [period_start, period_end] into up to target_buckets contiguous day-ranges.
+
+	generate_monthly_loss_snapshots() is the only place collect_loss_data() gets bucketed
+	today, and only by calendar month. This generalizes that same idea (run the flat
+	aggregator once per bucket) to an arbitrary window and granularity, so a comparison
+	chart can turn collect_loss_data()'s single flat total into a real time series.
+
+	Returns a list of (bucket_start, bucket_end, label) tuples, oldest first.
+	"""
+	start = getdate(period_start)
+	end = getdate(period_end)
+
+	total_days = (end - start).days + 1
+	bucket_count = max(1, min(target_buckets, total_days))
+	base_size, remainder = divmod(total_days, bucket_count)
+
+	buckets = []
+	cursor = start
+	for i in range(bucket_count):
+		size = base_size + (1 if i < remainder else 0)
+		if size == 0:
+			continue
+		bucket_start = cursor
+		bucket_end = add_days(cursor, size - 1)
+		label = str(bucket_start) if bucket_start == bucket_end else f"{bucket_start} to {bucket_end}"
+		buckets.append((bucket_start, bucket_end, label))
+		cursor = add_days(bucket_end, 1)
+
+	return buckets
 
 
 def generate_monthly_loss_snapshots():
