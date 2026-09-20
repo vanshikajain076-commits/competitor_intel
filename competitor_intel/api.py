@@ -5,7 +5,7 @@ import frappe
 import requests
 from frappe.utils import add_days, get_first_day, today
 
-from competitor_intel.loss_intelligence import collect_loss_data
+from competitor_intel.loss_intelligence import bucket_ranges, collect_loss_data
 
 MOCK_API_BASE = "http://localhost:5001"
 
@@ -103,7 +103,7 @@ def fetch_cloudflare_rank(competitor):
 			"to your site config to enable this feature."
 		)
 
-	website = doc.website.replace("https://", "").replace("http://", "").rstrip("/")
+	website = doc.website.replace("https://", "").replace("http://", "").rstrip("/").split("/")[0]
 
 	response = requests.get(
 		f"https://api.cloudflare.com/client/v4/radar/ranking/domain/{website}",
@@ -171,7 +171,39 @@ def get_monthly_visits_trend(competitor):
 
 @frappe.whitelist()
 def get_overview_data():
-	competitors = frappe.get_all("Competitor", fields=["name", "competitor_name", "website", "industry"])
+	"""Per-competitor snapshot for the Overview table.
+
+	Surfaces the latest value for every Competitor Metric type that actually
+	has data recorded anywhere, instead of a hardcoded subset (Monthly Visits/
+	Bounce Rate) that silently ignored newer metric types like Cloudflare
+	Traffic Rank or the Traffic: * breakdown. Also reports is_active so the
+	frontend can de-emphasize retired competitors instead of mixing them in
+	with current ones.
+	"""
+	# Inactive competitors are excluded by default rather than shown alongside
+	# current ones -- an old/retired competitor with stale metrics reads as
+	# current data otherwise, which is worse than just leaving it off this view.
+	competitors = frappe.get_all(
+		"Competitor",
+		filters={"is_active": 1},
+		fields=["name", "competitor_name", "website", "industry", "is_active", "logo"],
+		order_by="competitor_name asc",
+	)
+
+	# Columns are scoped to metrics that exist for a competitor actually shown
+	# here -- an inactive-only metric type would otherwise add an all-dash
+	# column now that inactive competitors are excluded above.
+	metric_types = []
+	if competitors:
+		metric_types = frappe.get_all(
+			"Competitor Metric",
+			filters={"competitor": ["in", [c.name for c in competitors]]},
+			fields=["metric_type"],
+			group_by="metric_type",
+			order_by="metric_type asc",
+			pluck="metric_type",
+		)
+
 	result = []
 	for c in competitors:
 		latest = {}
@@ -197,25 +229,58 @@ def get_overview_data():
 			"competitor_name": c.competitor_name,
 			"website": c.website,
 			"industry": c.industry,
-			"monthly_visits": latest.get("Monthly Visits"),
-			"search_trend": latest.get("Search Trend Index"),
-			"bounce_rate": latest.get("Bounce Rate"),
+			"is_active": bool(c.is_active),
+			"logo": c.logo,
+			"metrics": {mt: latest.get(mt) for mt in metric_types},
 			"market_position": q.get("market_position"),
 			"key_strength": q.get("key_strength"),
 			"key_weakness": q.get("key_weakness"),
 		})
-	return result
+	return {
+		"metric_types": metric_types,
+		"rows": result,
+		# Full Select option lists (not just values in use) so a filter chip for an
+		# unused option -- e.g. an Industry no competitor has been tagged with yet --
+		# still shows up instead of only appearing once someone starts using it.
+		"industry_options": _select_options("Competitor", "industry"),
+		"position_options": _select_options("Competitor Qualitative", "market_position"),
+	}
+
+
+def _select_options(doctype, fieldname):
+	options = frappe.get_meta(doctype).get_field(fieldname).options or ""
+	return [o for o in options.split("\n") if o.strip()]
+
+
+def _parse_list_arg(value):
+	"""Whitelisted methods can receive a JS array either already decoded or as a JSON string, depending on how the call was made."""
+	if isinstance(value, str):
+		return json.loads(value)
+	return value
 
 
 @frappe.whitelist()
-def get_comparison_trend(metric_type="Monthly Visits"):
-	competitors = frappe.get_all("Competitor", fields=["name", "competitor_name"])
+def get_comparison_trend(metric_type="Monthly Visits", competitors=None, period_start=None, period_end=None):
+	"""Multi-competitor trend for one Competitor Metric type.
+
+	`competitors`/`period_start`/`period_end` are optional filters on top of the
+	original all-competitors, all-time behaviour (used as-is by competitor_overview.js),
+	so a comparison view can scope this to just the competitors and date range picked there.
+	"""
+	competitor_filters = {}
+	if competitors:
+		competitor_filters["name"] = ["in", _parse_list_arg(competitors)]
+	all_competitors = frappe.get_all("Competitor", filters=competitor_filters, fields=["name", "competitor_name"])
+
 	series = {}
 	all_dates = set()
-	for c in competitors:
+	for c in all_competitors:
+		metric_filters = {"competitor": c.name, "metric_type": metric_type}
+		if period_start and period_end:
+			metric_filters["metric_date"] = ["between", [period_start, period_end]]
 		rows = frappe.get_all(
 			"Competitor Metric",
-			filters={"competitor": c.name, "metric_type": metric_type},
+			filters=metric_filters,
 			fields=["metric_date", "value"],
 			order_by="metric_date asc",
 		)
@@ -242,6 +307,113 @@ def get_comparison_trend(metric_type="Monthly Visits"):
 			"real_flags": [d in values_by_date for d in sorted_dates],
 		})
 	return {"labels": sorted_dates, "datasets": datasets}
+
+
+@frappe.whitelist()
+def get_comparison_loss_series(competitors, period_start, period_end, value="count"):
+	"""Multi-competitor loss trend for the comparison chart's loss-derived metrics.
+
+	collect_loss_data() aggregates a whole [period_start, period_end] window into one flat
+	number per competitor with no time-bucketing of its own (generate_monthly_loss_snapshots
+	is the only place that buckets it today, and only by calendar month). This generalizes
+	that same aggregator to an arbitrary window by calling it once per bucket_ranges() slice,
+	returning the same {labels, datasets: [{name, values, real_flags}]} shape get_comparison_trend
+	does, so the chart/single-point-dot logic on the frontend is identical either way.
+	"""
+	competitors = _parse_list_arg(competitors)
+	buckets = bucket_ranges(period_start, period_end)
+
+	labels = []
+	datasets = {c: {"name": c, "values": [], "real_flags": []} for c in competitors}
+	for b_start, b_end, label in buckets:
+		labels.append(label)
+		by_competitor, _ = collect_loss_data(b_start, b_end)
+		for c in competitors:
+			bucket = by_competitor.get(c)
+			count = (bucket["quotation_count"] + bucket["opportunity_count"]) if bucket else 0
+			lost_value = (bucket["quotation_value"] + bucket["opportunity_value"]) if bucket else 0
+			v = count if value == "count" else (lost_value / count if count else 0)
+			datasets[c]["values"].append(v)
+			datasets[c]["real_flags"].append(count > 0)
+
+	return {"labels": labels, "datasets": list(datasets.values())}
+
+
+@frappe.whitelist()
+def get_comparison_table(competitors, period_start, period_end):
+	"""Side-by-side row data for the comparison page: real Competitor + latest
+	Competitor Qualitative + latest in-range Competitor Metric + loss numbers for
+	the exact selected period, per selected competitor. Missing data comes back
+	as None so the frontend can render an honest "-" instead of inventing copy.
+	"""
+	competitors = _parse_list_arg(competitors)
+	by_competitor, _ = collect_loss_data(period_start, period_end)
+
+	result = []
+	for name in competitors:
+		docs = frappe.get_all(
+			"Competitor",
+			filters={"name": name},
+			fields=["name", "competitor_name", "industry", "website"],
+			limit_page_length=1,
+		)
+		if not docs:
+			continue
+		c = docs[0]
+
+		qual_rows = frappe.get_all(
+			"Competitor Qualitative",
+			filters={"competitor": name},
+			fields=[
+				"market_position", "pricing_model", "target_audience",
+				"key_strength", "key_weakness", "differentiation",
+			],
+			order_by="review_date desc",
+			limit_page_length=1,
+		)
+		qual = qual_rows[0] if qual_rows else {}
+
+		current_visits = frappe.get_all(
+			"Competitor Metric",
+			filters={
+				"competitor": name,
+				"metric_type": "Monthly Visits",
+				"metric_date": ["between", [period_start, period_end]],
+			},
+			fields=["value"],
+			order_by="metric_date desc",
+			limit_page_length=1,
+		)
+		prior_visits = frappe.get_all(
+			"Competitor Metric",
+			filters={"competitor": name, "metric_type": "Monthly Visits", "metric_date": ["<", period_start]},
+			fields=["value"],
+			order_by="metric_date desc",
+			limit_page_length=1,
+		)
+
+		loss = by_competitor.get(name) or {
+			"opportunity_count": 0, "opportunity_value": 0,
+			"quotation_count": 0, "quotation_value": 0,
+		}
+
+		result.append({
+			"competitor_name": c.competitor_name,
+			"industry": c.industry,
+			"website": c.website,
+			"market_position": qual.get("market_position"),
+			"pricing_model": qual.get("pricing_model"),
+			"target_audience": qual.get("target_audience"),
+			"key_strength": qual.get("key_strength"),
+			"key_weakness": qual.get("key_weakness"),
+			"differentiation": qual.get("differentiation"),
+			"monthly_visits": current_visits[0].value if current_visits else None,
+			"monthly_visits_prior": prior_visits[0].value if prior_visits else None,
+			"deals_lost": loss["quotation_count"] + loss["opportunity_count"],
+			"pipeline_lost": loss["quotation_value"] + loss["opportunity_value"],
+		})
+
+	return result
 
 
 @frappe.whitelist()
@@ -304,32 +476,69 @@ def get_current_month_loss_data(competitor=None):
 
 
 @frappe.whitelist()
-def get_top_competitors_by_losses(quarter_start, quarter_end):
+def get_top_competitors_by_losses(period_start, period_end):
 	"""Top 5 competitors by total deals lost (quotation + opportunity) in a period.
 
-	Sums quotation_lost_count + opportunity_lost_count across each
-	competitor's Competitor Loss Snapshot rows whose period falls within
-	[quarter_start, quarter_end].
+	Live via collect_loss_data() rather than the (month-aligned, finalized-only)
+	Competitor Loss Snapshot table, so this works for the in-progress current
+	month/quarter/year the Overview page's shared date-range control can select,
+	as well as an arbitrary custom range -- not just already-snapshotted months.
 	"""
-	rows = frappe.get_all(
-		"Competitor Loss Snapshot",
-		filters={
-			"period_start": [">=", quarter_start],
-			"period_end": ["<=", quarter_end],
-		},
-		fields=["competitor", "quotation_lost_count", "opportunity_lost_count"],
-	)
+	by_competitor, _ = collect_loss_data(period_start, period_end)
 
-	totals = {}
-	for row in rows:
-		totals[row.competitor] = (
-			totals.get(row.competitor, 0)
-			+ (row.quotation_lost_count or 0)
-			+ (row.opportunity_lost_count or 0)
-		)
-
-	ranked = sorted(totals.items(), key=lambda item: item[1], reverse=True)[:5]
+	totals = {
+		name: data["quotation_count"] + data["opportunity_count"]
+		for name, data in by_competitor.items()
+	}
+	ranked = sorted(
+		((name, total) for name, total in totals.items() if total > 0),
+		key=lambda item: item[1],
+		reverse=True,
+	)[:5]
 	return [{"competitor": name, "total_lost": total} for name, total in ranked]
+
+
+@frappe.whitelist()
+def get_loss_kpis(period_start, period_end, prior_start, prior_end):
+	"""Company-wide loss KPIs for the Overview page's KPI row: the selected
+	period's totals plus the same totals for a prior comparison period, both
+	computed live via collect_loss_data() (never from Competitor Loss Snapshot,
+	so this works for in-progress periods and custom ranges too).
+
+	What counts as the "equivalent prior period" depends on the selected
+	granularity (Month/Quarter/Year vs. Custom Range), so that date math lives
+	in the frontend (competitor_overview.js) where the granularity is known --
+	this just aggregates whatever two ranges it's given.
+
+	Totals are summed via by_reason, the same way the page's former "This Month
+	So Far" cards did -- so this carries the same full-attribution trade-off
+	documented in collect_loss_data's docstring (a deal with multiple reasons
+	counts fully toward each), not a new one.
+	"""
+
+	def _totals(start, end):
+		_, by_reason = collect_loss_data(start, end)
+		totals = {
+			"opportunity_count": 0,
+			"opportunity_value": 0,
+			"quotation_count": 0,
+			"quotation_value": 0,
+		}
+		for data in by_reason.values():
+			totals["opportunity_count"] += data["opportunity_count"]
+			totals["opportunity_value"] += data["opportunity_value"]
+			totals["quotation_count"] += data["quotation_count"]
+			totals["quotation_value"] += data["quotation_value"]
+		return totals
+
+	return {
+		"period_start": period_start,
+		"period_end": period_end,
+		"prior_start": prior_start,
+		"prior_end": prior_end,
+		"current": _totals(period_start, period_end),
+		"prior": _totals(prior_start, prior_end),
+	}
 
 
 @frappe.whitelist()
