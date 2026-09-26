@@ -243,8 +243,10 @@ function cd_color_for(name) {
 	return CD_AVATAR_COLORS[hash % CD_AVATAR_COLORS.length];
 }
 
-function cd_field_row(label, value, cls) {
-	const value_html = value ? frappe.utils.escape_html(value) : '-';
+function cd_field_row(label, value, cls, is_html) {
+	// is_html: for Text Editor fields, whose content is already-sanitized HTML from
+	// Frappe's own sanitize_html() on save — escaping it here would print raw tags.
+	const value_html = value ? (is_html ? value : frappe.utils.escape_html(value)) : '-';
 	return `
 		<div class="cd-field-row">
 			<div class="cd-fl">${frappe.utils.escape_html(label)}</div>
@@ -611,8 +613,8 @@ function load_qualitative(competitor_name, container) {
 			doctype: 'Competitor Qualitative',
 			filters: { competitor: competitor_name },
 			fields: [
-				'name', 'review_date', 'market_position', 'pricing_model',
-				'target_audience', 'key_strength', 'key_weakness', 'differentiation'
+				'name', 'review_date', 'source_evidence', 'market_position', 'pricing_model',
+				'perceived_threat_level', 'target_audience', 'key_strength', 'key_weakness', 'differentiation'
 			],
 			order_by: 'review_date desc',
 			limit_page_length: 0
@@ -639,9 +641,10 @@ function render_snapshot(latest, container) {
 	el.html(`
 		<div class="cd-field-row"><div class="cd-fl">Market Position</div><div class="cd-fv">${position_html}</div></div>
 		${cd_field_row('Pricing Model', latest.pricing_model)}
-		${cd_field_row('Target Audience', latest.target_audience)}
-		${cd_field_row('Key Strength', latest.key_strength, 'strength')}
-		${cd_field_row('Key Weakness', latest.key_weakness, 'weakness')}
+		${cd_field_row('Perceived Threat Level', latest.perceived_threat_level)}
+		${cd_field_row('Target Audience', latest.target_audience, null, true)}
+		${cd_field_row('Key Strength', latest.key_strength, 'strength', true)}
+		${cd_field_row('Key Weakness', latest.key_weakness, 'weakness', true)}
 	`);
 }
 
@@ -672,12 +675,14 @@ function render_qualitative_notes(competitor_name, rows, container) {
 	const [latest, ...older] = rows;
 
 	const full_details = (row) => `
+		${cd_field_row('Source / Evidence', row.source_evidence)}
 		${cd_field_row('Market Position', row.market_position)}
 		${cd_field_row('Pricing Model', row.pricing_model)}
-		${cd_field_row('Target Audience', row.target_audience)}
-		${cd_field_row('Key Strength', row.key_strength, 'strength')}
-		${cd_field_row('Key Weakness', row.key_weakness, 'weakness')}
-		${cd_field_row('Differentiation', row.differentiation)}
+		${cd_field_row('Perceived Threat Level', row.perceived_threat_level)}
+		${cd_field_row('Target Audience', row.target_audience, null, true)}
+		${cd_field_row('Key Strength', row.key_strength, 'strength', true)}
+		${cd_field_row('Key Weakness', row.key_weakness, 'weakness', true)}
+		${cd_field_row('Differentiation', row.differentiation, null, true)}
 	`;
 
 	let html = `<div class="cd-card-body" style="padding-bottom: 4px;">${full_details(latest)}</div>`;

@@ -12,8 +12,10 @@
     "field_order": [
         "competitor",
         "review_date",
+        "source_evidence",
         "market_position",
         "pricing_model",
+        "perceived_threat_level",
         "column_break_1",
         "target_audience",
         "section_break_1",
@@ -24,14 +26,16 @@
     "fields": [
         {"fieldname": "competitor", "fieldtype": "Link", "label": "Competitor", "options": "Competitor", "reqd": 1, "in_list_view": 1},
         {"fieldname": "review_date", "fieldtype": "Date", "label": "Review Date", "reqd": 1, "default": "Today", "in_list_view": 1},
+        {"fieldname": "source_evidence", "fieldtype": "Small Text", "label": "Source / Evidence", "description": "Where this observation came from — a sales call, the competitor's website, a conference, etc."},
         {"fieldname": "market_position", "fieldtype": "Select", "label": "Market Position", "options": "Leader\nChallenger\nNiche\nNew Entrant", "in_list_view": 1},
         {"fieldname": "pricing_model", "fieldtype": "Select", "label": "Pricing Model", "options": "Freemium\nSubscription\nOne-time\nEnterprise\nCustom Quote"},
+        {"fieldname": "perceived_threat_level", "fieldtype": "Select", "label": "Perceived Threat Level", "options": "\nHigh\nMedium\nLow", "description": "Your own judgment call — independent of the AI-generated threat level on AI Insight."},
         {"fieldname": "column_break_1", "fieldtype": "Column Break"},
-        {"fieldname": "target_audience", "fieldtype": "Small Text", "label": "Target Audience"},
+        {"fieldname": "target_audience", "fieldtype": "Text Editor", "label": "Target Audience"},
         {"fieldname": "section_break_1", "fieldtype": "Section Break", "label": "SWOT"},
-        {"fieldname": "key_strength", "fieldtype": "Small Text", "label": "Key Strength"},
-        {"fieldname": "key_weakness", "fieldtype": "Small Text", "label": "Key Weakness"},
-        {"fieldname": "differentiation", "fieldtype": "Small Text", "label": "Differentiation"}
+        {"fieldname": "key_strength", "fieldtype": "Text Editor", "label": "Key Strength"},
+        {"fieldname": "key_weakness", "fieldtype": "Text Editor", "label": "Key Weakness"},
+        {"fieldname": "differentiation", "fieldtype": "Text Editor", "label": "Differentiation"}
     ],
     "permissions": [
         {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1}
