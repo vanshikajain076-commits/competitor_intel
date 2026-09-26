@@ -196,3 +196,17 @@ No data-migration patch needed — all data on this instance was test/demo data.
 - This chat stays the planning/architecture reference; Claude Code handles hands-on implementation
 - Normal loop: edit → `bench --site metalco.localhost migrate` (schema changes) → test in browser/console → `git add/commit/push`, one small step at a time
 - `CLAUDE.md` at the repo root documents the two-level nested-folder gotcha (repo root vs. inner Python package) — check it whenever creating a new top-level module
+
+---
+
+## 11. `Competitor Metric` — data retention (recommendation, not yet implemented)
+
+**Current size:** 33 rows on this sandbox (`metalco.localhost`) as of 2026-09-26 — no growth pressure today. This section is forward-looking guidance for once the table sees real, ongoing use.
+
+**Why it'll grow:** creation is currently manual-only (no scheduler creates metrics automatically) — the "Fetch Traffic Data" and "Seed Demo History" buttons (Mock API) and "Fetch Cloudflare Rank" button are the only writers. But if this becomes a daily/weekly habit across many tracked competitors, rows accumulate fast: e.g. ~20 competitors × ~6 metric types × daily runs ≈ 40k+ rows/year. That's still small for MariaDB in absolute terms, but the comparison charts, the new "Competitor Metrics by Type" dashboard chart, and any report-view queries all do full scans/group-bys over this table, so query time creeps up long before row count becomes a storage problem.
+
+**Recommended policy, once that growth actually happens:**
+1. **Keep raw rows for a rolling window** (e.g. 18–24 months) — long enough for any realistic trend comparison, short enough to bound table size.
+2. **Beyond that window, roll up rather than just delete** — this app already has a precedent for exactly this shape of problem: `Competitor Loss Snapshot` / `Loss Reason Snapshot` keep a monthly aggregate rather than every underlying transaction (see §6). The same pattern (e.g. a monthly min/avg/max per `competitor` + `metric_type`) would preserve long-term trend visibility without keeping every daily/weekly point forever.
+3. **Any pruning or roll-up stays a manual, explicit, reviewable action** — never a silent scheduled job — consistent with how this app already treats destructive/consolidating operations (the monthly loss-snapshot job only ever *creates/updates* snapshots, it never deletes source records).
+4. **Revisit once there's real usage data.** With 33 rows there's nothing to optimize yet; the point of this section is to have a plan ready before the table's size becomes a UI/performance complaint, not to build anything against it today.

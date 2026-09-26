@@ -43,6 +43,24 @@ frappe.ui.form.on('Competitor', {
 					}
 				});
 			}, 'Real Data');
+
+			frm.add_custom_button('Fetch Search Trend', () => {
+				frappe.call({
+					method: 'competitor_intel.api.fetch_search_trend',
+					args: { competitor: frm.doc.name },
+					freeze: true,
+					freeze_message: 'Fetching search trend data...',
+					callback: (r) => {
+						if (r.message && r.message.message) {
+							frappe.show_alert({ message: r.message.message, indicator: 'orange' });
+						} else {
+							const count = (r.message.created || []).length + (r.message.updated || []).length;
+							frappe.show_alert({ message: `Search trend data fetched (${count} days)`, indicator: 'green' });
+							frm.reload_doc();
+						}
+					}
+				});
+			}, 'Real Data');
 		}
 	}
 });

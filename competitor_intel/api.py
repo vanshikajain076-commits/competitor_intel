@@ -156,6 +156,73 @@ def fetch_cloudflare_rank(competitor):
 
 
 @frappe.whitelist()
+def fetch_search_trend(competitor):
+	"""Fetch real Google Trends interest-over-time for a Competitor's name and
+	save it as Competitor Metric rows (metric_type = "Search Trend Index").
+
+	Google Trends is keyword-based, not domain-based, so this searches on
+	`competitor_name` rather than `website`. Re-running this is safe: an
+	existing row for a date that's already been fetched gets its value
+	updated in place instead of erroring against the duplicate-prevention
+	validation on Competitor Metric.
+	"""
+	from pytrends.request import TrendReq
+
+	doc = frappe.get_doc("Competitor", competitor)
+	keyword = doc.competitor_name
+
+	try:
+		pytrends = TrendReq(hl="en-US", tz=360)
+		pytrends.build_payload([keyword], timeframe="today 3-m")
+		df = pytrends.interest_over_time()
+	except Exception:
+		frappe.log_error(
+			title=f"Google Trends fetch failed: {competitor}",
+			message=frappe.get_traceback(),
+		)
+		return {"message": f"No search trend data available for '{keyword}' right now."}
+
+	if df.empty:
+		return {"message": f"No search trend data available for '{keyword}' right now."}
+
+	# `isPartial` marks the most recent point(s) as not-yet-finalized by Google -
+	# excluded rather than stored, so a Competitor Metric row is never a value
+	# that could still change.
+	if "isPartial" in df.columns:
+		df = df[df["isPartial"] == False]  # noqa: E712
+		df = df.drop(columns=["isPartial"])
+
+	if df.empty or keyword not in df.columns:
+		return {"message": f"No search trend data available for '{keyword}' right now."}
+
+	created, updated = [], []
+	for date, row in df.iterrows():
+		metric_date = date.strftime("%Y-%m-%d")
+		existing_name = frappe.db.get_value(
+			"Competitor Metric",
+			{"competitor": competitor, "metric_date": metric_date, "metric_type": "Search Trend Index"},
+		)
+		is_new = not existing_name
+		if existing_name:
+			metric = frappe.get_doc("Competitor Metric", existing_name)
+		else:
+			metric = frappe.new_doc("Competitor Metric")
+			metric.competitor = competitor
+			metric.metric_date = metric_date
+			metric.metric_type = "Search Trend Index"
+
+		metric.value = row[keyword]
+		metric.source = "Google Trends"
+		metric.save(ignore_permissions=True)
+
+		(created if is_new else updated).append(metric.name)
+
+	frappe.db.commit()
+
+	return {"created": created, "updated": updated}
+
+
+@frappe.whitelist()
 def get_monthly_visits_trend(competitor):
 	rows = frappe.get_all(
 		"Competitor Metric",
