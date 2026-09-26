@@ -1,0 +1,18 @@
+[
+ {
+  "default_value": null,
+  "doc_type": "Competitor",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "website",
+  "is_system_generated": 1,
+  "modified": "2026-09-12 13:42:09.897194",
+  "module": null,
+  "name": "Competitor-website-description",
+  "property": "description",
+  "property_type": "Text",
+  "row_name": null,
+  "value": "Full website URL, e.g. https://example.com — the app automatically strips this down to a bare domain wherever needed (e.g. for Cloudflare lookups)."
+ }
+]

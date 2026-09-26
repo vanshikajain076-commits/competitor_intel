@@ -23,7 +23,7 @@
   "name": "Competitor-notes",
   "dt": "Competitor",
   "fieldname": "notes",
-  "fieldtype": "Small Text",
+  "fieldtype": "Text Editor",
   "label": "Notes",
   "insert_after": "logo"
  },
