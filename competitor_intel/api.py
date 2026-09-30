@@ -1,9 +1,10 @@
 import json
 import random
+import re
 
 import frappe
 import requests
-from frappe.utils import add_days, get_first_day, today
+from frappe.utils import add_days, get_first_day, strip_html, today
 
 from competitor_intel.loss_intelligence import bucket_ranges, collect_loss_data
 
@@ -700,20 +701,41 @@ def get_competitor_lifetime_stats(competitor):
     }
 
 
+THREAT_LEVEL_OPTIONS = ("High", "Medium", "Low")
+
+
+def _normalize_threat_level(raw):
+	"""Map the model's threat_level output onto the AI Insight Select options.
+
+	Handles case/whitespace/punctuation differences ("high", " HIGH. ") and
+	near-matches ("High threat", "medium-high risk"). Returns "" (a valid empty
+	Select value) when nothing maps unambiguously, so the save never fails on it.
+	"""
+	if not isinstance(raw, str):
+		return ""
+
+	text = raw.strip().strip("\"'.").strip().lower()
+	for option in THREAT_LEVEL_OPTIONS:
+		if text == option.lower():
+			return option
+
+	found = {option for option in THREAT_LEVEL_OPTIONS if re.search(rf"\b{option.lower()}\b", text)}
+	return found.pop() if len(found) == 1 else ""
+
+
 @frappe.whitelist()
-def get_ai_insight(competitor):
-	"""Moved from competitor_dashboard.py (Step 9d) — scoped to `competitor` instead of the old `analysis`."""
-	existing = frappe.get_all(
+def get_ai_insights(competitor):
+	"""All AI Insights for `competitor`, newest first (history: the first row is the current insight)."""
+	return frappe.get_all(
 		"AI Insight",
 		filters={"competitor": competitor},
 		fields=[
 			"name", "generated_on", "threat_level", "threat_explanation",
-			"market_gap_opportunities", "recommended_positioning"
+			"market_gap_opportunities", "recommended_positioning", "data_snapshot"
 		],
-		order_by="generated_on desc",
-		limit_page_length=1
+		order_by="generated_on desc, creation desc",
+		limit_page_length=0
 	)
-	return existing[0] if existing else None
 
 
 @frappe.whitelist()
@@ -741,7 +763,8 @@ def generate_ai_insights(competitor):
 		order_by="review_date desc",
 		limit_page_length=1,
 	)
-	qual = qual_rows[0] if qual_rows else {}
+	# Several qualitative fields are Text Editor (HTML) -- send plain text to the model
+	qual = {k: strip_html(v).strip() if isinstance(v, str) else v for k, v in qual_rows[0].items()} if qual_rows else {}
 
 	if not latest_metrics and not qual:
 		frappe.throw("No metrics or qualitative notes found for this competitor yet.")
@@ -813,21 +836,19 @@ Respond with ONLY a valid JSON object (no markdown, no code fences, no extra tex
 	except json.JSONDecodeError:
 		frappe.throw(f"Could not parse AI response as JSON: {content}")
 
-	# One insight record per competitor: update if exists, else create new
-	existing = frappe.get_all("AI Insight", filters={"competitor": competitor}, limit_page_length=1)
+	if not isinstance(parsed, dict):
+		frappe.throw(f"Unexpected AI response shape (expected a JSON object): {content}")
 
-	if existing:
-		insight_doc = frappe.get_doc("AI Insight", existing[0].name)
-	else:
-		insight_doc = frappe.new_doc("AI Insight")
-		insight_doc.competitor = competitor
-
-	insight_doc.threat_level = parsed.get("threat_level")
+	# History is kept: every generation inserts a new record instead of updating the last one
+	insight_doc = frappe.new_doc("AI Insight")
+	insight_doc.competitor = competitor
+	insight_doc.threat_level = _normalize_threat_level(parsed.get("threat_level"))
 	insight_doc.threat_explanation = parsed.get("threat_explanation")
 	insight_doc.market_gap_opportunities = parsed.get("market_gap_opportunities")
 	insight_doc.recommended_positioning = parsed.get("recommended_positioning")
+	insight_doc.data_snapshot = data_summary
 	insight_doc.generated_on = frappe.utils.now()
-	insight_doc.save(ignore_permissions=True)
+	insight_doc.insert(ignore_permissions=True)
 	frappe.db.commit()
 
 	return insight_doc.as_dict()

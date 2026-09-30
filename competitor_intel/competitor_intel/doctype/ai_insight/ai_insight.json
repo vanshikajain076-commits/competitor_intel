@@ -15,7 +15,9 @@
   "threat_level",
   "threat_explanation",
   "market_gap_opportunities",
-  "recommended_positioning"
+  "recommended_positioning",
+  "section_break_snapshot",
+  "data_snapshot"
  ],
  "fields": [
   {
@@ -54,6 +56,18 @@
    "fieldname": "recommended_positioning",
    "fieldtype": "Small Text",
    "label": "Recommended Positioning"
+  },
+  {
+   "fieldname": "section_break_snapshot",
+   "fieldtype": "Section Break",
+   "label": "Source Data"
+  },
+  {
+   "fieldname": "data_snapshot",
+   "fieldtype": "Long Text",
+   "label": "Data Sent to AI",
+   "read_only": 1,
+   "description": "The competitor data summary sent to the model for this specific generation."
   }
  ],
  "permissions": [

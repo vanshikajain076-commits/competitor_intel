@@ -749,28 +749,58 @@ function load_ai_insight(competitor_name, container) {
 	const section = container.find('#ai-insight-section');
 	const threat_colors = { High: 'red', Medium: 'amber', Low: 'green' };
 
-	const render = (insight) => {
-		let html = '';
+	const insight_body = (insight) => `
+		<p><strong>Why:</strong> ${frappe.utils.escape_html(insight.threat_explanation || '-')}</p>
+		<p><strong>Market Gap Opportunities:</strong> ${frappe.utils.escape_html(insight.market_gap_opportunities || '-')}</p>
+		<p style="margin-bottom: 0;"><strong>Recommended Positioning:</strong> ${frappe.utils.escape_html(insight.recommended_positioning || '-')}</p>
+		${insight.data_snapshot ? `
+			<div style="margin-top: 8px;">
+				<a href="#" class="ai-insight-data-toggle text-muted small">Show data sent to AI</a>
+				<pre class="ai-insight-data" style="display: none; margin-top: 6px; white-space: pre-wrap;">${frappe.utils.escape_html(insight.data_snapshot)}</pre>
+			</div>` : ''}
+	`;
 
-		if (insight) {
-			const color = threat_colors[insight.threat_level] || 'gray';
+	const render = (insights) => {
+		let html = '';
+		const [latest, ...older] = insights;
+
+		if (latest) {
+			const color = threat_colors[latest.threat_level] || 'gray';
 			html += `
 				<div class="cd-card-body">
 					<div style="margin-bottom: 8px;">
-						<span class="cd-badge ${color}"><span class="cd-dot"></span>${frappe.utils.escape_html(insight.threat_level || 'Unknown')} THREAT</span>
+						<span class="cd-badge ${color}"><span class="cd-dot"></span>${frappe.utils.escape_html(latest.threat_level || 'Unknown')} THREAT</span>
 						<span class="text-muted small" style="margin-left: 8px;">
-							Generated ${frappe.datetime.str_to_user(insight.generated_on)}
+							Generated ${frappe.datetime.str_to_user(latest.generated_on)}
 						</span>
 					</div>
-					<p><strong>Why:</strong> ${frappe.utils.escape_html(insight.threat_explanation || '-')}</p>
-					<p><strong>Market Gap Opportunities:</strong> ${frappe.utils.escape_html(insight.market_gap_opportunities || '-')}</p>
-					<p style="margin-bottom: 0;"><strong>Recommended Positioning:</strong> ${frappe.utils.escape_html(insight.recommended_positioning || '-')}</p>
+					${insight_body(latest)}
 				</div>
 				<div class="cd-card-body" style="padding-top: 0;">
-					<button class="btn btn-default btn-xs" id="generate-ai-insight-btn">Regenerate</button>
+					<button class="btn btn-default btn-xs" id="generate-ai-insight-btn">Generate new insight</button>
 					<button class="btn btn-default btn-xs" id="insight-to-action-btn" style="margin-left: 8px;">Turn this into an action</button>
 				</div>
 			`;
+
+			if (older.length > 0) {
+				const label = `${older.length} earlier insight${older.length > 1 ? 's' : ''}`;
+				html += `<div class="cd-notes-meta">Most recent insight · <a id="ai-insight-history-toggle">Show ${label}</a></div>`;
+				html += `<div id="ai-insight-history-list" class="cd-card-body" style="display: none; padding-top: 0;">
+					${older.map(row => {
+						const row_color = threat_colors[row.threat_level] || 'gray';
+						return `
+							<div style="border: 1px solid #f3f4f6; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+								<a href="#" class="ai-insight-history-item-toggle">
+									${frappe.datetime.str_to_user(row.generated_on)} —
+									<span class="cd-badge ${row_color}"><span class="cd-dot"></span>${frappe.utils.escape_html(row.threat_level || 'Unknown')}</span>
+								</a>
+								<div class="ai-insight-history-item-details" style="display: none; margin-top: 8px;">
+									${insight_body(row)}
+								</div>
+							</div>`;
+					}).join('')}
+				</div>`;
+			}
 		} else {
 			html += cd_empty(
 				'No AI insight generated yet',
@@ -789,25 +819,50 @@ function load_ai_insight(competitor_name, container) {
 			frappe.call({
 				method: 'competitor_intel.api.generate_ai_insights',
 				args: { competitor: competitor_name },
-				callback: (r) => render(r.message),
+				callback: () => load_ai_insight(competitor_name, container),
 				error: () => {
 					frappe.msgprint('Error generating insights. Check the browser console for details.');
-					btn.prop('disabled', false).text(insight ? 'Regenerate' : 'Generate AI Insights');
+					btn.prop('disabled', false).text(latest ? 'Generate new insight' : 'Generate AI Insights');
 				}
 			});
 		});
 
-		if (insight) {
+		if (latest) {
 			section.find('#insight-to-action-btn').on('click', () => {
-				open_add_action_dialog(competitor_name, container, 'AI Insight', insight.name);
+				open_add_action_dialog(competitor_name, container, 'AI Insight', latest.name);
+			});
+		}
+
+		section.find('.ai-insight-data-toggle').on('click', function(e) {
+			e.preventDefault();
+			const pre = $(this).next('.ai-insight-data');
+			const currently_visible = pre.is(':visible');
+			pre.slideToggle();
+			$(this).text(currently_visible ? 'Show data sent to AI' : 'Hide data sent to AI');
+		});
+
+		if (older.length > 0) {
+			const label = `${older.length} earlier insight${older.length > 1 ? 's' : ''}`;
+			const list_el = section.find('#ai-insight-history-list');
+
+			section.find('#ai-insight-history-toggle').on('click', function(e) {
+				e.preventDefault();
+				const currently_visible = list_el.is(':visible');
+				list_el.slideToggle();
+				$(this).text(currently_visible ? `Show ${label}` : `Hide ${label}`);
+			});
+
+			list_el.find('.ai-insight-history-item-toggle').on('click', function(e) {
+				e.preventDefault();
+				$(this).closest('div').find('.ai-insight-history-item-details').first().slideToggle();
 			});
 		}
 	};
 
 	frappe.call({
-		method: 'competitor_intel.api.get_ai_insight',
+		method: 'competitor_intel.api.get_ai_insights',
 		args: { competitor: competitor_name },
-		callback: (r) => render(r.message)
+		callback: (r) => render(r.message || [])
 	});
 }
 
