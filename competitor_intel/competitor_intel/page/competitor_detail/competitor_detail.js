@@ -123,6 +123,7 @@ frappe.pages['competitor-detail'].on_page_load = function(wrapper) {
 				<div class="cd-card">
 					<div class="cd-card-head"><h3>Losses Over Time</h3></div>
 					<div class="cd-card-body" id="loss-trend-chart"></div>
+					<div class="cd-card-body text-muted small" id="loss-trend-updated" style="padding-top: 0;"></div>
 				</div>
 				<div class="cd-card">
 					<div class="cd-card-head">
@@ -352,6 +353,19 @@ function render_activity(rows, container) {
 // ---- Loss Intelligence tab ----
 
 function load_loss_trend_chart(competitor_name, container) {
+	frappe.call({
+		method: 'competitor_intel.api.get_last_snapshot_generated_on',
+		args: { competitor: competitor_name },
+		callback: (r) => {
+			const el = container.find('#loss-trend-updated');
+			if (r.message) {
+				el.text(__('Last updated: {0}', [frappe.datetime.str_to_user(r.message)]));
+			} else {
+				el.empty();
+			}
+		}
+	});
+
 	frappe.call({
 		method: 'frappe.client.get_list',
 		args: {

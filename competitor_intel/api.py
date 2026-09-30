@@ -609,6 +609,22 @@ def get_loss_kpis(period_start, period_end, prior_start, prior_end):
 
 
 @frappe.whitelist()
+def get_last_snapshot_generated_on(competitor=None):
+	"""Most recent generated_on across Competitor Loss Snapshots (optionally one competitor)."""
+	filters = {"generated_on": ["is", "set"]}
+	if competitor:
+		filters["competitor"] = competitor
+	rows = frappe.get_all(
+		"Competitor Loss Snapshot",
+		filters=filters,
+		fields=["generated_on"],
+		order_by="generated_on desc",
+		limit_page_length=1,
+	)
+	return str(rows[0].generated_on) if rows else None
+
+
+@frappe.whitelist()
 def get_competitor_lifetime_stats(competitor):
     """All-time quick stats + recent activity for the Competitor Detail page header.
 

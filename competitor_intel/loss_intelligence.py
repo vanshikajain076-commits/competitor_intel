@@ -142,6 +142,7 @@ def generate_monthly_loss_snapshots():
 	period_end = get_last_day(period_start)
 
 	by_competitor, by_reason = collect_loss_data(period_start, period_end)
+	failures = []
 
 	for competitor in frappe.get_all("Competitor", filters={"is_active": 1}, pluck="name"):
 		try:
@@ -149,6 +150,7 @@ def generate_monthly_loss_snapshots():
 				competitor, period_start, period_end, by_competitor.get(competitor)
 			)
 		except Exception:
+			failures.append(f"Competitor Loss Snapshot: {competitor}")
 			frappe.log_error(
 				title=f"Competitor Loss Snapshot failed: {competitor} ({period_start} - {period_end})",
 				message=frappe.get_traceback(),
@@ -166,12 +168,69 @@ def generate_monthly_loss_snapshots():
 				reason_type, reason_name, period_start, period_end, by_reason.get((reason_type, reason_name))
 			)
 		except Exception:
+			failures.append(f"Loss Reason Snapshot: {reason_type} / {reason_name}")
 			frappe.log_error(
 				title=f"Loss Reason Snapshot failed: {reason_type} / {reason_name} ({period_start} - {period_end})",
 				message=frappe.get_traceback(),
 			)
 
 	frappe.db.commit()
+
+	if failures:
+		_notify_snapshot_failures(failures, period_start, period_end)
+
+
+def _notify_snapshot_failures(failures, period_start, period_end):
+	"""Assign a ToDo (plus a bell Notification Log) to every enabled System Manager.
+
+	Per-record errors are only in Error Log, which nobody browses unprompted; this
+	is what makes a partial run visible. Must never raise -- it runs after the
+	snapshots are already committed.
+	"""
+	try:
+		users = frappe.get_all(
+			"User",
+			filters={"enabled": 1, "name": ["in", frappe.get_all(
+				"Has Role", filters={"role": "System Manager", "parenttype": "User"}, pluck="parent"
+			)]},
+			pluck="name",
+		)
+
+		shown = failures[:20]
+		summary = (
+			f"Monthly Loss Intelligence snapshots for {period_start} to {period_end}: "
+			f"{len(failures)} record(s) failed."
+		)
+		details = "".join(f"<li>{frappe.utils.escape_html(f)}</li>" for f in shown)
+		if len(failures) > len(shown):
+			details += f"<li>...and {len(failures) - len(shown)} more</li>"
+		body = f"{summary}<ul>{details}</ul>See Error Log (titles ending \"({period_start} - {period_end})\") for tracebacks."
+
+		for user in users:
+			todo = frappe.get_doc({
+				"doctype": "ToDo",
+				"allocated_to": user,
+				"description": body,
+				"priority": "High",
+				"status": "Open",
+			}).insert(ignore_permissions=True)
+
+			frappe.get_doc({
+				"doctype": "Notification Log",
+				"for_user": user,
+				"type": "Alert",
+				"subject": summary,
+				"email_content": body,
+				"document_type": "ToDo",
+				"document_name": todo.name,
+			}).insert(ignore_permissions=True)
+
+		frappe.db.commit()
+	except Exception:
+		frappe.log_error(
+			title="Loss snapshot failure notification failed",
+			message=frappe.get_traceback(),
+		)
 
 
 def _get_or_create(doctype, filters):

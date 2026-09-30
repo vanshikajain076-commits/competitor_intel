@@ -122,6 +122,7 @@ frappe.pages['competitor-overview'].on_page_load = function(wrapper) {
 				<div class="ci-tabs" id="ci-chart-tabs"></div>
 				<div style="padding: 16px;" id="ci-chart-body"></div>
 				<div class="ci-chart-legend" id="ci-chart-legend"></div>
+				<div class="ci-empty" id="ci-snapshot-updated" style="padding: 0 16px 14px;"></div>
 			</div>
 
 			<div class="ci-card">
@@ -340,7 +341,22 @@ frappe.pages['competitor-overview'].on_page_load = function(wrapper) {
 
 	// ---- Trend chart ----
 
+	function load_snapshot_updated() {
+		frappe.call({
+			method: 'competitor_intel.api.get_last_snapshot_generated_on',
+			callback: (r) => {
+				const $note = page.main.find('#ci-snapshot-updated');
+				if (r.message) {
+					$note.text(__('Loss snapshots last updated: {0}', [frappe.datetime.str_to_user(r.message)]));
+				} else {
+					$note.empty();
+				}
+			}
+		});
+	}
+
 	function load_metric_tabs() {
+		load_snapshot_updated();
 		frappe.call({
 			method: 'frappe.client.get_list',
 			args: {
