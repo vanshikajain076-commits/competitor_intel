@@ -79,9 +79,24 @@ frappe.pages['competitor-detail'].on_page_load = function(wrapper) {
 			.cd-empty-icon { width: 34px; height: 34px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; font-size: 15px; color: #9ca3af; }
 			.cd-empty-title { font-size: 13px; font-weight: 500; color: #4b5563; margin-bottom: 3px; }
 			.cd-empty-sub { font-size: 12px; color: #9ca3af; margin-bottom: 14px; max-width: 280px; }
+
+			.cd-picker { display: none; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 34px 20px; text-align: center; }
+			.cd-picker-prompt { font-size: 15px; font-weight: 500; color: #1f2937; margin-bottom: 4px; }
+			.cd-picker-sub { font-size: 12px; color: #6b7280; margin-bottom: 16px; }
+			.cd-picker-msg { font-size: 12px; color: #dc2626; margin-bottom: 12px; }
+			.cd-picker-field { max-width: 360px; margin: 0 auto; text-align: left; }
+			.cd-detail.cd-picking { overflow: visible; }
+			.cd-detail.cd-picking > :not(.cd-picker) { display: none; }
+			.cd-detail.cd-picking > .cd-picker { display: block; }
 		</style>
 
 		<div class="cd-detail">
+			<div class="cd-picker" id="cd-picker">
+				<div class="cd-picker-prompt">Select a competitor to view their details</div>
+				<div class="cd-picker-sub">Search by name, or open one from the Overview.</div>
+				<div class="cd-picker-msg" id="cd-picker-msg" style="display: none;"></div>
+				<div class="cd-picker-field" id="cd-picker-field"></div>
+			</div>
 			<div class="cd-header">
 				<div class="cd-header-top">
 					<div class="cd-header-left">
@@ -177,6 +192,24 @@ frappe.pages['competitor-detail'].on_page_load = function(wrapper) {
 		</div>
 	`).appendTo(page.main);
 
+	// Native Link control: standard Frappe search/select behavior against Competitor
+	page.competitor_picker = frappe.ui.form.make_control({
+		df: {
+			fieldtype: 'Link',
+			fieldname: 'competitor',
+			options: 'Competitor',
+			placeholder: 'Search competitors…',
+			change: () => {
+				const selected = page.competitor_picker.get_value();
+				if (selected && selected !== frappe.get_route()[1]) {
+					frappe.set_route('competitor-detail', selected);
+				}
+			}
+		},
+		parent: page.main.find('#cd-picker-field'),
+		render_input: true
+	});
+
 	page.main.find('.cd-tabs button').on('click', function() {
 		const tab = $(this).data('tab');
 		page.main.find('.cd-tabs button').removeClass('active');
@@ -194,17 +227,27 @@ frappe.pages['competitor-detail'].refresh = function(wrapper) {
 	const competitor_name = frappe.get_route()[1];
 	const container = page.main;
 
+	// Empty state: no competitor in the route -> show the picker instead of the detail view
+	const show_picker = (message) => {
+		container.find('.cd-detail').addClass('cd-picking');
+		const msg_el = container.find('#cd-picker-msg');
+		if (message) msg_el.text(message).show(); else msg_el.hide();
+		page.set_title('Competitor Detail');
+		page.competitor_picker.set_value('');
+	};
+
 	if (!competitor_name) {
-		frappe.set_route('competitor-overview');
+		show_picker();
 		return;
 	}
+	container.find('.cd-detail').removeClass('cd-picking');
 
 	frappe.call({
 		method: 'frappe.client.get',
 		args: { doctype: 'Competitor', name: competitor_name },
 		callback: (r) => {
 			if (!r.message) {
-				container.find('.cd-detail').html(`<p class="text-muted">Competitor "${frappe.utils.escape_html(competitor_name)}" not found.</p>`);
+				show_picker(`Competitor "${competitor_name}" not found. Pick another below.`);
 				return;
 			}
 
@@ -231,7 +274,7 @@ frappe.pages['competitor-detail'].refresh = function(wrapper) {
 			});
 		},
 		error: () => {
-			container.find('.cd-detail').html(`<p class="text-muted">Could not load competitor "${frappe.utils.escape_html(competitor_name)}".</p>`);
+			show_picker(`Could not load competitor "${competitor_name}". Pick another below.`);
 		}
 	});
 };
