@@ -1,0 +1,745 @@
+/**
+ * @vitest-environment node
+ */
+
+import { ref } from 'vue'
+import { http, HttpResponse } from 'msw'
+import { useCall } from '../index'
+import { useIsolatedCall } from '../useIsolatedCall'
+import { url, waitUntilValueChanges } from '../../mocks/utils'
+import { server } from '../../mocks/node'
+
+/**
+ * Records the body of every request that reaches the network while `run` is
+ * in flight. msw's `request:start` misses a request aborted the moment it
+ * left, and this pair of tests is about exactly those.
+ */
+async function recordRequests(run: () => Promise<unknown>) {
+  const bodies: string[] = []
+  const original = globalThis.fetch
+  globalThis.fetch = (input: any, init: any) => {
+    bodies.push(String(init?.body ?? ''))
+    return original(input, init)
+  }
+  try {
+    await run()
+  } finally {
+    globalThis.fetch = original
+  }
+  return bodies
+}
+
+/** Counts the requests msw sees while `run` is in flight. */
+async function countRequests(run: () => Promise<unknown>) {
+  let requests = 0
+  const count = () => {
+    requests += 1
+  }
+  server.events.on('request:start', count)
+  try {
+    await run()
+  } finally {
+    server.events.removeListener('request:start', count)
+  }
+  return requests
+}
+
+describe('msw works', () => {
+  it('ping responds with pong', async () => {
+    const response = await fetch(url('/api/v2/method/ping'))
+
+    expect(response.status).toBe(200)
+    expect(response.statusText).toBe('OK')
+    expect(await response.json()).toEqual({
+      data: 'pong',
+    })
+  })
+})
+
+describe('useCall', () => {
+  it('it returns expected reactive object', async () => {
+    type PingResponse = string
+    let ping = useCall<PingResponse>({
+      url: url('/api/v2/method/ping'),
+      immediate: false,
+    })
+
+    // Verify initial state
+    expect(ping.loading).toBe(false)
+    expect(ping.data).toBe(null)
+    expect(ping.error).toBe(null)
+    expect(typeof ping.execute).toBe('function')
+    expect(typeof ping.submit).toBe('function')
+    expect(typeof ping.reset).toBe('function')
+
+    // Execute the call
+    ping.execute()
+    expect(ping.loading).toBe(true)
+
+    await ping.promise
+    await waitUntilValueChanges(() => ping.loading)
+
+    // Verify final state
+    expect(ping.data).toBe('pong')
+    expect(ping.error).toBe(null)
+    expect(ping.isFinished).toBe(true)
+    expect(ping.loading).toBe(false)
+  })
+
+  it('handles error responses', async () => {
+    const onError = vi.fn()
+    const errorCall = useCall({
+      url: url('/api/v2/method/error'),
+      onError,
+      immediate: false,
+    })
+
+    errorCall.fetch()
+    await errorCall.promise.catch(() => {})
+
+    await waitUntilValueChanges(() => errorCall.loading)
+
+    expect(errorCall.loading).toBe(false)
+    expect(errorCall.error).toBeInstanceOf(Error)
+    expect(errorCall.error.message).toEqual(
+      'ServerError: Internal Server Error occurred',
+    )
+    expect(errorCall.data).toBe(null)
+    expect(onError).toHaveBeenCalledWith(errorCall.error)
+  })
+
+  it('handles POST requests with params', async () => {
+    type Response = { success: boolean; received: any }
+    const postCall = useCall<Response, { name: string }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      params: { name: 'test' },
+      immediate: false,
+    })
+
+    postCall.fetch()
+    await postCall.promise
+
+    expect(postCall.data).toEqual({
+      success: true,
+      received: { name: 'test' },
+    })
+  })
+
+  it('supports dynamic params with reactive values', async () => {
+    const dynamicValue = ref('test')
+    const call = useCall<{ value: string }, { value: string }>({
+      url: url('/api/v2/method/get'),
+      params: () => ({ value: dynamicValue.value }),
+      immediate: false,
+    })
+
+    call.fetch()
+    await call.promise
+
+    expect(call.url).toContain('value=test')
+    expect(call.data).toEqual({ value: 'test' })
+  })
+
+  it('refetches automatically when a reactive param changes (refetch: true)', async () => {
+    const dynamicValue = ref('first')
+    const call = useCall<{ value: string }, { value: string }>({
+      url: url('/api/v2/method/get'),
+      params: () => ({ value: dynamicValue.value }),
+      refetch: true,
+    })
+
+    await call.promise
+    expect(call.data).toEqual({ value: 'first' })
+
+    // No manual fetch()/reload() call — the param ref changing is what
+    // triggers the next request.
+    dynamicValue.value = 'second'
+    await waitUntilValueChanges(() => call.data)
+
+    expect(call.data).toEqual({ value: 'second' })
+  })
+
+  it('does not refetch on a param change when refetch is false (the default)', async () => {
+    const dynamicValue = ref('first')
+    const call = useCall<{ value: string }, { value: string }>({
+      url: url('/api/v2/method/get'),
+      params: () => ({ value: dynamicValue.value }),
+    })
+
+    await call.promise
+    expect(call.data).toEqual({ value: 'first' })
+
+    dynamicValue.value = 'second'
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(call.data).toEqual({ value: 'first' })
+  })
+
+  it('runs beforeSubmit before the request is sent, with the submitted params', async () => {
+    const beforeSubmit = vi.fn()
+    const call = useCall<{ success: boolean }, { name: string }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      immediate: false,
+      beforeSubmit,
+    })
+
+    await call.submit({ name: 'test' })
+
+    expect(beforeSubmit).toHaveBeenCalledWith({ name: 'test' })
+  })
+
+  it('does not send the request and rejects when beforeSubmit throws', async () => {
+    const call = useCall<{ success: boolean }, { name: string }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      immediate: false,
+      beforeSubmit: () => {
+        throw new Error('invalid')
+      },
+    })
+
+    await expect(call.submit({ name: 'test' })).rejects.toThrow('invalid')
+
+    expect(call.loading).toBe(false)
+    expect(call.data).toBe(null)
+    expect(call.error).toBe(null)
+  })
+
+  it('shows initialData before the first response arrives', () => {
+    const call = useCall<{ value: string }>({
+      url: url('/api/v2/method/get'),
+      initialData: { value: 'placeholder' },
+      immediate: false,
+    })
+
+    expect(call.data).toEqual({ value: 'placeholder' })
+  })
+
+  it('transforms response data correctly', async () => {
+    type Response = { numbers: number[] }
+    const call = useCall<Response>({
+      url: url('/api/v2/method/numbers'),
+      transform: (data) => ({ numbers: data.numbers.map((n) => n * 2) }),
+      refetch: true,
+    })
+    await call.promise
+    expect(call.data).toEqual({ numbers: [2, 4, 6, 8] })
+  })
+
+  it('supports submit with different params', async () => {
+    type Params = { value: string }
+    type Response = { success: boolean; received: any }
+    const call = useCall<Response, Params>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      refetch: true,
+      immediate: false,
+    })
+
+    call.submit({ value: 'first submit' })
+    await call.promise
+    expect(call.data).toEqual({
+      success: true,
+      received: { value: 'first submit' },
+    })
+
+    // submit with another set of params
+    call.submit({ value: 'second submit' })
+    await call.promise
+    expect(call.data).toEqual({
+      success: true,
+      received: { value: 'second submit' },
+    })
+  })
+
+  it('supports submit with no params', async () => {
+    type Response = { success: boolean; received: any }
+    const call = useCall<Response>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      refetch: false,
+      immediate: false,
+    })
+
+    call.submit()
+    await waitUntilValueChanges(() => call.data)
+
+    expect(call.data).toEqual({
+      success: true,
+      received: {},
+    })
+  })
+
+  it('handles abort correctly', async () => {
+    const call = useCall({
+      url: url('/api/v2/method/slow'),
+      immediate: false,
+    })
+
+    call.fetch()
+    expect(call.loading).toBe(true)
+
+    call.abort()
+    expect(call.aborted).toBe(true)
+  })
+
+  it('supports generic type parameters for Response and Params', async () => {
+    interface GetResponse {
+      value: string
+    }
+    interface GetParams {
+      value: string
+    }
+    const call = useCall<GetResponse, GetParams>({
+      url: url('/api/v2/method/get'),
+      immediate: false,
+    })
+
+    // @ts-expect-error
+    await call.submit({ hello: 1 }).catch(() => {})
+
+    await call.submit({ value: 'test' })
+  })
+
+  // Actions reject, reads resolve (DAT-Q1).
+  it('rejects a failed submit and resolves a failed read', async () => {
+    const call = useCall({
+      url: url('/api/v2/method/error'),
+      immediate: false,
+    })
+
+    await expect(call.submit()).rejects.toThrow('ServerError')
+    expect(call.error).toBeTruthy()
+
+    // The same failure, through every read name.
+    await expect(call.execute()).resolves.toBe(null)
+    await expect(call.fetch()).resolves.toBe(null)
+    await expect(call.reload()).resolves.toBe(null)
+    expect(call.error).toBeTruthy()
+  })
+
+  it('resolves a successful submit with the response', async () => {
+    const call = useCall<{ success: boolean }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      immediate: false,
+    })
+
+    await expect(call.submit()).resolves.toMatchObject({ success: true })
+    expect(call.error).toBe(null)
+  })
+
+  // `refetch: true` hands the dispatch to the parameter watcher. `submit()`
+  // still has to answer for that request (DAT-Q1).
+  it('rejects a failed submit when refetch is true', async () => {
+    const call = useCall<{ success: boolean }, { value: string }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      refetch: true,
+      immediate: false,
+    })
+
+    await expect(call.submit({ value: 'please fail' })).rejects.toThrow(
+      'ValidationError: post failed',
+    )
+    expect(call.error).toBeTruthy()
+    expect(call.loading).toBe(false)
+  })
+
+  it('resolves a successful submit with the response when refetch is true', async () => {
+    const call = useCall<
+      { success: boolean; received: any },
+      { value: string }
+    >({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      refetch: true,
+      immediate: false,
+    })
+
+    await expect(call.submit({ value: 'first' })).resolves.toEqual({
+      success: true,
+      received: { value: 'first' },
+    })
+    expect(call.data).toEqual({ success: true, received: { value: 'first' } })
+
+    // A second submit with new params goes through the watcher again.
+    await expect(call.submit({ value: 'second' })).resolves.toEqual({
+      success: true,
+      received: { value: 'second' },
+    })
+    expect(call.error).toBe(null)
+  })
+
+  // No parameter change means no watcher, so `submit()` sends the request
+  // itself. One request per call either way, and it still rejects on failure.
+  it('sends the request itself when refetch is true and the params do not change', async () => {
+    const call = useCall<{ success: boolean; received: any }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      refetch: true,
+      immediate: false,
+    })
+
+    await expect(call.submit()).resolves.toEqual({
+      success: true,
+      received: {},
+    })
+
+    // The same object twice is not a parameter change either.
+    const sameParams = { value: 'same' }
+    const repeated = useCall<
+      { success: boolean; received: any },
+      { value: string }
+    >({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      refetch: true,
+      immediate: false,
+    })
+    await expect(repeated.submit(sameParams)).resolves.toEqual({
+      success: true,
+      received: { value: 'same' },
+    })
+    await expect(repeated.submit(sameParams)).resolves.toEqual({
+      success: true,
+      received: { value: 'same' },
+    })
+
+    const failing = useCall<{ success: boolean }, { value: string }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      params: { value: 'please fail' },
+      refetch: true,
+      immediate: false,
+    })
+    await expect(failing.submit()).rejects.toThrow(
+      'ValidationError: post failed',
+    )
+  })
+
+  it('sends one request per submit when refetch is true', async () => {
+    const call = useCall<{ success: boolean }, { value: string }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      refetch: true,
+      immediate: false,
+    })
+
+    const requests = await countRequests(async () => {
+      await call.submit({ value: 'one' })
+      await call.submit({ value: 'two' })
+      await call.submit()
+    })
+
+    expect(requests).toBe(3)
+  })
+
+  // Every one of these used to send nothing on the second call, because the
+  // dispatch was guessed from the argument instead of observed.
+  it('sends its own request when the params watcher will not fire', async () => {
+    const post = useCall<{ success: boolean; received: any }, { v: string }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      refetch: true,
+      immediate: false,
+    })
+
+    // The same object twice: the ref does not change, so no watcher fires.
+    const sameObject = { v: 'same' }
+    const sameObjectRequests = await countRequests(async () => {
+      await post.submit(sameObject)
+      await post.submit(sameObject)
+    })
+    expect(sameObjectRequests).toBe(2)
+
+    // GET watches only the URL. Equal content builds an equal URL, so a fresh
+    // object each time still fires no watcher.
+    const read = useCall<{ value: string }, { value: string }>({
+      url: url('/api/v2/method/get'),
+      refetch: true,
+      immediate: false,
+    })
+    const getRequests = await countRequests(async () => {
+      await read.submit({ value: 'a' })
+      await read.submit({ value: 'a' })
+    })
+    expect(getRequests).toBe(2)
+
+    // No argument at all.
+    const noArgs = useCall<{ success: boolean }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      refetch: true,
+      immediate: false,
+    })
+    expect(await countRequests(() => noArgs.submit())).toBe(1)
+  })
+
+  // The echo handlers answer identical params identically, so a stale
+  // response is invisible to them. This one numbers every answer.
+  it('resolves each refetch submit with its own response, not a stale one', async () => {
+    let served = 0
+    server.use(
+      http.post(url('/api/v2/method/counter'), () => {
+        served += 1
+        return HttpResponse.json({ data: { n: served } })
+      }),
+      http.get(url('/api/v2/method/counter'), () => {
+        served += 1
+        return HttpResponse.json({ data: { n: served } })
+      }),
+    )
+
+    const post = useCall<{ n: number }, { v: string }>({
+      url: url('/api/v2/method/counter'),
+      method: 'POST',
+      refetch: true,
+      immediate: false,
+    })
+    const sameObject = { v: 'same' }
+    await expect(post.submit(sameObject)).resolves.toEqual({ n: 1 })
+    await expect(post.submit(sameObject)).resolves.toEqual({ n: 2 })
+
+    const read = useCall<{ n: number }, { value: string }>({
+      url: url('/api/v2/method/counter'),
+      refetch: true,
+      immediate: false,
+    })
+    await expect(read.submit({ value: 'a' })).resolves.toEqual({ n: 3 })
+    await expect(read.submit({ value: 'a' })).resolves.toEqual({ n: 4 })
+
+    const noArgs = useCall<{ n: number }>({
+      url: url('/api/v2/method/counter'),
+      method: 'POST',
+      refetch: true,
+      immediate: false,
+    })
+    await expect(noArgs.submit()).resolves.toEqual({ n: 5 })
+    await expect(noArgs.submit()).resolves.toEqual({ n: 6 })
+  })
+
+  // Two submits in the same tick share one request: the parameter watcher is
+  // pre-flush, so it coalesces them. Both settle on that one response.
+  it('coalesces two same-tick refetch submits into one request', async () => {
+    const call = useCall<{ success: boolean; received: any }, { v: string }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      refetch: true,
+      immediate: false,
+    })
+
+    let first: Promise<any>
+    let second: Promise<any>
+    const requests = await countRequests(async () => {
+      first = call.submit({ v: 'first' })
+      second = call.submit({ v: 'second' })
+      await Promise.all([first, second])
+    })
+
+    expect(requests).toBe(1)
+    const last = { success: true, received: { v: 'second' } }
+    await expect(first!).resolves.toEqual(last)
+    await expect(second!).resolves.toEqual(last)
+  })
+
+  it("does not reject a refetch submit with a previous request's error", async () => {
+    const call = useCall<{ success: boolean }, { v: string }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      refetch: true,
+      immediate: false,
+    })
+
+    await expect(call.submit({ v: 'please fail' })).rejects.toThrow(
+      'ValidationError: post failed',
+    )
+    expect(call.error).toBeTruthy()
+
+    // A fresh submit that succeeds must not inherit that error.
+    await expect(call.submit({ v: 'fine' })).resolves.toEqual({
+      success: true,
+      received: { v: 'fine' },
+    })
+    expect(call.error).toBe(null)
+  })
+
+  // Pre-existing before this round: the newer request aborts the older one,
+  // and the abort rejection lands after the newer execute() cleared `error`.
+  it('does not reject a submit whose own request succeeded', async () => {
+    const call = useCall<{ success: boolean; received: any }, { v: string }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      immediate: false,
+    })
+
+    const older = call.submit({ v: 'slow-one' })
+    const newer = call.submit({ v: 'quick' })
+
+    await expect(newer).resolves.toEqual({
+      success: true,
+      received: { v: 'quick' },
+    })
+    expect(call.error).toBe(null)
+    await older.catch(() => {})
+  })
+
+  // A request minted before the submit assigned its params is not the
+  // submit's request, even when it is still in flight: it read the params of
+  // the moment it left, which are not these. `fetch()` and `submit()` in the
+  // same tick shared one request until the dispatch number was taken at the
+  // top of `execute` instead of a microtask into it.
+  it('does not adopt a request that started before it', async () => {
+    let served = 0
+    server.use(
+      http.post(url('/api/v2/method/counter'), () => {
+        served += 1
+        return HttpResponse.json({ data: { n: served } })
+      }),
+    )
+
+    const call = useCall<{ n: number }>({
+      url: url('/api/v2/method/counter'),
+      method: 'POST',
+      refetch: true,
+      immediate: false,
+    })
+
+    let submitted: Promise<any>
+    const requests = await recordRequests(async () => {
+      call.fetch()
+      submitted = call.submit()
+      await submitted
+    })
+
+    expect(requests).toHaveLength(2)
+    await expect(submitted!).resolves.toEqual({ n: 2 })
+  })
+
+  // The other half of the same rule. `immediate: true` sends its request in a
+  // microtask, so a submit in the same tick is ahead of it: the request reads
+  // the params the submit has already assigned, so it is the submit's own
+  // request and the submit settles on it.
+  it('settles a same-tick submit on the immediate request', async () => {
+    const call = useCall<{ success: boolean; received: any }, { v: string }>({
+      url: url('/api/v2/method/post'),
+      method: 'POST',
+      params: { v: 'initial' },
+      refetch: true,
+    })
+
+    let submitted: Promise<any>
+    const requests = await recordRequests(async () => {
+      submitted = call.submit({ v: 'submitted' })
+      await submitted
+    })
+
+    await expect(submitted!).resolves.toEqual({
+      success: true,
+      received: { v: 'submitted' },
+    })
+    // The params watcher sends a second one and aborts the first. Both carry
+    // the submitted params: neither was built before the submit assigned
+    // them, which is what the submit settles on.
+    expect(requests).toEqual(['{"v":"submitted"}', '{"v":"submitted"}'])
+  })
+
+  it('caches data if cacheKey is provided', async () => {
+    const call = useCall({
+      url: url('/api/v2/method/ping'),
+      cacheKey: 'ping',
+    })
+
+    await waitUntilValueChanges(() => call.data)
+    expect(call.data).toBe('pong')
+
+    const secondCall = useCall({
+      url: url('/api/v2/method/ping'),
+      immediate: false,
+      cacheKey: 'ping',
+    })
+
+    await waitUntilValueChanges(() => secondCall.data)
+    expect(secondCall.data).toBe('pong')
+  })
+
+  it('caches the response as the server sent it and transforms it once on read', async () => {
+    // `transform` parses a JSON string. Parsing it a second time throws, so
+    // the cache must never hand `transform` a value it already transformed.
+    server.use(
+      http.get(url('/api/v2/method/json-string'), () =>
+        HttpResponse.json({ data: JSON.stringify({ n: 1 }) }),
+      ),
+    )
+    const options = {
+      url: url('/api/v2/method/json-string'),
+      cacheKey: 'parsed-json-string',
+      transform: (data: string | { n: number }) => JSON.parse(data as string),
+    }
+
+    const call = useCall(options)
+    await vi.waitFor(() => expect(call.data).toEqual({ n: 1 }))
+
+    const reopened = useCall({ ...options, immediate: false })
+    await vi.waitFor(() => expect(reopened.data).toEqual({ n: 1 }))
+
+    // `useIsolatedCall` writes the same cache through its own path.
+    const isolated = useIsolatedCall({
+      ...options,
+      cacheKey: 'parsed-json-string-isolated',
+    })
+    await isolated.submit()
+    expect(isolated.data).toEqual({ n: 1 })
+
+    const reopenedIsolated = useIsolatedCall({
+      ...options,
+      cacheKey: 'parsed-json-string-isolated',
+    })
+    await vi.waitFor(() => expect(reopenedIsolated.data).toEqual({ n: 1 }))
+  })
+
+  it('keeps cached data visible when a refetch fails', async () => {
+    const cacheKey = 'offline-ping'
+    const call = useCall({
+      url: url('/api/v2/method/ping'),
+      cacheKey,
+    })
+
+    await waitUntilValueChanges(() => call.data)
+    expect(call.data).toBe('pong')
+
+    const offlineCall = useCall({
+      url: url('/api/v2/method/network-error'),
+      cacheKey,
+      staleOnError: true,
+    })
+
+    await waitUntilValueChanges(() => offlineCall.data)
+    await waitUntilValueChanges(() => offlineCall.loading)
+
+    expect(offlineCall.error).toBeTruthy()
+    expect(offlineCall.data).toBe('pong')
+  })
+
+  it('does not parse empty network failures as Frappe errors', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const networkCall = useCall({
+      url: url('/api/v2/method/network-error'),
+      immediate: false,
+    })
+
+    networkCall.fetch()
+    await networkCall.promise.catch(() => {})
+    await waitUntilValueChanges(() => networkCall.loading)
+
+    expect(networkCall.error).toBeTruthy()
+    expect(logSpy).not.toHaveBeenCalledWith(
+      'Error parsing error response:',
+      expect.anything(),
+    )
+
+    logSpy.mockRestore()
+  })
+})

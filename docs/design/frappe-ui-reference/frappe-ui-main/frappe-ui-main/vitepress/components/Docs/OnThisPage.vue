@@ -1,0 +1,133 @@
+<script setup lang="ts">
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute } from 'vitepress'
+import { ScrollArea } from 'frappe-ui'
+
+interface Heading {
+  type: string
+  name: string
+  id: string
+}
+
+const headings = ref<Heading[]>([])
+const activeHeading = ref<string>()
+const h2Exists = ref(false)
+
+// Cached heading offsets go stale as images/demos load in, so track visibility
+// instead: the topmost heading intersecting the band below the navbar wins.
+let observer: IntersectionObserver | undefined
+const visible = new Set<string>()
+
+// VitePress appends a `#` anchor whose text is a zero-width space. trim() keeps
+// that character, and it can wrap onto a line of its own in the outline.
+function headingText(el: Element) {
+  const copy = el.cloneNode(true) as Element
+  copy.querySelectorAll('.header-anchor').forEach((a) => a.remove())
+  return copy.textContent?.trim() ?? ''
+}
+
+const setHeadings = () => {
+  // Real doc headings carry an id (VitePress adds it for the anchor); headings
+  // from components without one, e.g. Accordion triggers, are filtered out already.
+  // RichTextKit assigns its own ids too, so also drop anything under `[data-demo-preview]`.
+  const elements = Array.from(
+    document.querySelectorAll('h2[id], h3[id]'),
+  ).filter((el) => !el.closest('[data-demo-preview]'))
+
+  h2Exists.value = elements.some((el) => el.tagName == 'H2')
+
+  headings.value = elements.map((el) => ({
+    type: el.tagName.toLowerCase(),
+    name: headingText(el),
+    id: el.id,
+  }))
+
+  observer?.disconnect()
+  visible.clear()
+  elements.forEach((el) => observer?.observe(el))
+}
+
+const syncActive = () => {
+  // Fall back to the last heading scrolled past, so the list never goes blank
+  // between two widely spaced headings.
+  const first = headings.value.find((h) => visible.has(h.id))
+  if (first) {
+    activeHeading.value = first.id
+    return
+  }
+  const passed = headings.value.filter((h) => {
+    const el = document.getElementById(h.id)
+    return el && el.getBoundingClientRect().top < 80
+  })
+  activeHeading.value = passed.at(-1)?.id ?? headings.value[0]?.id
+}
+
+const route = useRoute()
+
+const list = ref<HTMLElement | null>(null)
+const marker = ref<{ top: number; height: number } | null>(null)
+watch([activeHeading, headings], () =>
+  nextTick(() => {
+    const links = list.value?.querySelectorAll<HTMLElement>('a')
+    const el = Array.from(links ?? []).find(
+      (a) => a.getAttribute('href') === `#${activeHeading.value}`,
+    )
+    marker.value = el ? { top: el.offsetTop, height: el.offsetHeight } : null
+  }),
+)
+
+onMounted(() => {
+  observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) visible.add(entry.target.id)
+        else visible.delete(entry.target.id)
+      }
+      syncActive()
+    },
+    // Band from just under the navbar to the middle of the viewport.
+    { rootMargin: '-80px 0px -55% 0px' },
+  )
+  setHeadings()
+})
+
+onUnmounted(() => observer?.disconnect())
+
+watch(route, () => nextTick(setHeadings))
+</script>
+
+<template>
+  <!-- A sticky column the height of the viewport below the navbar, scrolling
+       on its own when the outline is longer than the screen. The viewport's
+       pt-10 matches the prose column's lg:p-10, so the label sits level with
+       the page's h1. -->
+  <aside
+    class="sticky top-12 flex h-[calc(100vh-3rem)] flex-col leading-relaxed"
+    :class="{ invisible: headings.length == 0 }"
+  >
+    <ScrollArea class="min-h-0 flex-1" viewport-class="px-5 pt-10 pb-10">
+      <div ref="list" class="relative flex flex-col">
+        <span
+          v-if="marker"
+          class="absolute left-0 w-0.5 -translate-x-[0.5px] rounded-full bg-surface-gray-7 transition-all duration-200 ease-out"
+          :style="{ top: `${marker.top}px`, height: `${marker.height}px` }"
+          aria-hidden="true"
+        />
+        <!-- The label starts on the rail's line, left of the indented links. -->
+        <span class="font-medium whitespace-nowrap pb-1">On this page</span>
+
+        <a
+          v-for="x in headings"
+          :href="`#${x.id}`"
+          class="text-ink-gray-6 pl-4 py-1 border-l hover:text-ink-gray-9"
+          @click="activeHeading = x.id"
+          :class="{
+            'pl-7': x.type == 'h3' && h2Exists,
+            'text-ink-gray-9': activeHeading && x.id == activeHeading,
+          }"
+          >{{ x.name }}</a
+        >
+      </div>
+    </ScrollArea>
+  </aside>
+</template>

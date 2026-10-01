@@ -19,15 +19,14 @@ fixtures = [
 # required_apps = []
 
 # Each item in the list will be shown as an app in the apps page
-# add_to_apps_screen = [
-# 	{
-# 		"name": "competitor_intel",
-# 		"logo": "/assets/competitor_intel/logo.png",
-# 		"title": "Competitor Intel",
-# 		"route": "/competitor_intel",
-# 		"has_permission": "competitor_intel.api.permission.has_app_permission"
-# 	}
-# ]
+add_to_apps_screen = [
+	{
+		"name": "competitor_intel",
+		"logo": "/assets/competitor_intel/images/logo.svg",
+		"title": "Competitor Intel",
+		"route": "/desk/competitor-overview",
+	}
+]
 
 # Includes in <head>
 # ------------------

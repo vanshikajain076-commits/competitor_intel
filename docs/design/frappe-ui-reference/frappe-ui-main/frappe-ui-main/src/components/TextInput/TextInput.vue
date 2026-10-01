@@ -1,0 +1,288 @@
+<template>
+  <LabelingWrapper
+    :enabled="hasLabeling"
+    :wrapper-class="['space-y-1.5', attrs.class]"
+    :wrapper-style="attrs.style as StyleValue"
+  >
+    <InputLabel
+      v-if="props.label || $slots.label"
+      :id="labelId"
+      :for-id="inputId"
+      :label="props.label"
+      :required="props.required"
+    >
+      <template v-if="$slots.label" #default="slotProps">
+        <slot name="label" v-bind="slotProps" />
+      </template>
+    </InputLabel>
+    <div
+      class="relative flex items-center"
+      :class="hasLabeling ? null : (attrs.class as any)"
+      :style="hasLabeling ? null : (attrs.style as any)"
+    >
+      <div
+        :class="[
+          'absolute inset-y-0 start-0 flex items-center',
+          textColor,
+          prefixClasses,
+        ]"
+        v-if="$slots.prefix"
+      >
+        <slot name="prefix"> </slot>
+      </div>
+      <input
+        ref="inputRef"
+        :type="type"
+        :placeholder="placeholder"
+        :class="inputClasses"
+        :disabled="disabled"
+        :id="inputId"
+        :value="modelValue"
+        :required="required"
+        :aria-required="required || undefined"
+        :aria-invalid="hasError || undefined"
+        :aria-errormessage="hasError ? errorMessageId : undefined"
+        :aria-describedby="describedBy"
+        data-slot="control"
+        autocomplete="off"
+        v-bind="{ ...dataAttrs, ...attrsWithoutClassStyle }"
+        @input="handleChange"
+        @change="handleChange"
+      />
+      <div
+        :class="[
+          'absolute inset-y-0 end-0 flex items-center',
+          textColor,
+          suffixClasses,
+        ]"
+        v-if="$slots.suffix"
+      >
+        <slot name="suffix"> </slot>
+      </div>
+    </div>
+    <InputDescription
+      v-if="showDescription || $slots.description"
+      :id="descriptionId"
+      :description="props.description"
+    >
+      <slot v-if="$slots.description" name="description" />
+    </InputDescription>
+    <InputError v-if="hasError" :id="errorMessageId" :lines="errorLines" />
+  </LabelingWrapper>
+</template>
+
+<script setup lang="ts">
+import { computed, ref, useAttrs } from 'vue'
+import type { StyleValue } from 'vue'
+import debounce from '../../utils/debounce'
+import { resolvePropValue } from '../../utils/resolvePropValue'
+import { useInputLabeling } from '../../composables/useInputLabeling'
+import { useReactiveSlots } from '../../composables/useReactiveSlots'
+import InputLabel from '../InputLabeling/InputLabel.vue'
+import InputDescription from '../InputLabeling/InputDescription.vue'
+import InputError from '../InputLabeling/InputError.vue'
+import LabelingWrapper from '../InputLabeling/LabelingWrapper.vue'
+import type { InputSize } from '../../composables/inputTypes'
+import type { TextInputEmits, TextInputExposed, TextInputProps } from './types'
+
+defineOptions({
+  inheritAttrs: false,
+})
+
+const props = withDefaults(defineProps<TextInputProps>(), {
+  type: 'text',
+  size: 'sm',
+  variant: 'subtle',
+})
+
+const SIZE_FALLBACK = 'sm'
+const SIZE_CONTEXT = { component: 'TextInput', prop: 'size' } as const
+
+// Heights are fixed, not derived from line-height: 24/28/32/40px.
+const sizeClassesBySize: Record<InputSize, string> = {
+  xs: 'text-xs rounded-3 h-6',
+  sm: 'text-base rounded-4 h-7',
+  md: 'text-base rounded-4 h-8',
+  lg: 'text-lg rounded-5 h-10',
+}
+
+const prefixPaddingBySize: Record<InputSize, string> = {
+  xs: 'ps-1.5',
+  sm: 'ps-2',
+  md: 'ps-2.5',
+  lg: 'ps-3',
+}
+
+const suffixPaddingBySize: Record<InputSize, string> = {
+  xs: 'pe-1.5',
+  sm: 'pe-2',
+  md: 'pe-2.5',
+  lg: 'pe-3',
+}
+
+const emit = defineEmits<TextInputEmits>()
+const slots = useReactiveSlots<typeof declaredSlots>()
+
+const declaredSlots = defineSlots<{
+  /** Content rendered before the input (left side) */
+  prefix?: () => any
+
+  /** Content rendered after the input (right side) */
+  suffix?: () => any
+
+  /** Overrides the rendered label content. Receives `{ required }`. */
+  label?: (props: { required: boolean }) => any
+
+  /** Overrides the rendered description content. */
+  description?: () => any
+}>()
+
+const attrs = useAttrs()
+
+const attrsWithoutClassStyle = computed(() => {
+  return Object.fromEntries(
+    Object.entries(attrs).filter(([key]) => key !== 'class' && key !== 'style'),
+  )
+})
+
+const {
+  inputId,
+  labelId,
+  descriptionId,
+  errorMessageId,
+  describedBy,
+  hasError,
+  errorLines,
+  showDescription,
+  dataAttrs,
+} = useInputLabeling(props, {
+  size: () => props.size,
+  variant: () => props.variant,
+  disabled: () => props.disabled,
+  hasLabelSlot: () => Boolean(slots.label),
+  hasDescriptionSlot: () => Boolean(slots.description),
+})
+
+const hasLabeling = computed(() => {
+  return Boolean(
+    props.label ||
+    props.description ||
+    hasError.value ||
+    slots.label ||
+    slots.description,
+  )
+})
+
+const inputRef = ref<HTMLInputElement | null>(null)
+
+function focus(options?: FocusOptions) {
+  inputRef.value?.focus(options)
+}
+
+// A getter rather than `computed(...)`: Vue unwraps a handed-back ref/computed
+// at the proxy boundary regardless, but `defineExpose<TextInputExposed>`
+// type-checks the object literal itself, and a ComputedRef doesn't
+// structurally match the plain `HTMLInputElement | null` the type declares.
+defineExpose<TextInputExposed>({
+  /** Moves focus to the input. */
+  focus,
+  get inputElement() {
+    return inputRef.value
+  },
+})
+
+const textColor = computed(() => {
+  return props.disabled ? 'text-ink-gray-5' : 'text-ink-gray-8'
+})
+
+const inputClasses = computed(() => {
+  const paddingBySize: Record<InputSize, string[]> = {
+    xs: [
+      'py-1',
+      slots.prefix ? 'ps-7' : 'ps-1.5',
+      slots.suffix ? 'pe-7' : 'pe-1.5',
+    ],
+    sm: [
+      'py-1.5',
+      slots.prefix ? 'ps-8' : 'ps-2',
+      slots.suffix ? 'pe-8' : 'pe-2',
+    ],
+    md: [
+      'py-1.5',
+      slots.prefix ? 'ps-9' : 'ps-2.5',
+      slots.suffix ? 'pe-9' : 'pe-2.5',
+    ],
+    lg: [
+      'py-1.5',
+      slots.prefix ? 'ps-10' : 'ps-3',
+      slots.suffix ? 'pe-10' : 'pe-3',
+    ],
+  }
+
+  let sizeClasses = resolvePropValue(
+    sizeClassesBySize,
+    props.size,
+    SIZE_FALLBACK,
+    SIZE_CONTEXT,
+  )
+
+  let paddingClasses = resolvePropValue(
+    paddingBySize,
+    props.size,
+    SIZE_FALLBACK,
+    SIZE_CONTEXT,
+  )
+
+  let variant = props.disabled ? 'disabled' : props.variant
+  let variantClasses = {
+    subtle:
+      'border border-[--surface-gray-2] bg-surface-gray-2 placeholder-ink-gray-4 hover:border-outline-elevation-2 hover:bg-surface-gray-3 focus:bg-surface-base focus:border-outline-gray-4 focus:shadow-sm focus:ring-0',
+    outline:
+      'border border-outline-gray-2 bg-surface-base placeholder-ink-gray-4 hover:border-outline-gray-3 hover:shadow-sm focus:bg-surface-base focus:border-outline-gray-4 focus:shadow-sm focus:ring-0',
+    disabled: [
+      'border bg-surface-gray-1 placeholder-ink-gray-3',
+      props.variant === 'outline'
+        ? 'border-outline-gray-2'
+        : 'border-transparent',
+    ],
+    ghost: 'border-0 bg-transparent focus:ring-0 focus-visible:outline-none',
+  }[variant]
+
+  return [
+    sizeClasses,
+    paddingClasses,
+    variantClasses,
+    textColor.value,
+    'leading-tighter transition-colors w-full dark:[color-scheme:dark]',
+  ]
+})
+
+let prefixClasses = computed(() => {
+  return resolvePropValue(
+    prefixPaddingBySize,
+    props.size,
+    SIZE_FALLBACK,
+    SIZE_CONTEXT,
+  )
+})
+
+let suffixClasses = computed(() => {
+  return resolvePropValue(
+    suffixPaddingBySize,
+    props.size,
+    SIZE_FALLBACK,
+    SIZE_CONTEXT,
+  )
+})
+
+let emitChange = (value: string) => {
+  emit('update:modelValue', value)
+}
+if (props.debounce) {
+  emitChange = debounce(emitChange, props.debounce)
+}
+
+let handleChange = (e: Event) => {
+  emitChange((e.target as HTMLInputElement).value)
+}
+</script>
