@@ -44,63 +44,63 @@ frappe.pages['competitor-comparison'].on_page_load = function(wrapper) {
 	page.main.html(`
 		<style>
 			.cc-wrap { display: flex; flex-direction: column; gap: 18px; font-family: 'Plus Jakarta Sans', var(--font-stack, sans-serif); }
-			.cc-eyebrow { display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: oklch(0.55 0.014 265); margin-bottom: 4px; }
+			.cc-eyebrow { display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
 			.cc-title { margin: 0 0 14px; font-size: 24px; font-weight: 700; letter-spacing: -.01em; }
-			.cc-card { background: #fff; border: 1px solid oklch(0.92 0.006 265); border-radius: 12px; box-shadow: 0 1px 2px rgba(20,20,30,.04); }
+			.cc-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 1px 2px rgba(20,20,30,.04); }
 			.cc-controls { padding: 18px 20px; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; position: relative; z-index: 3; }
 			@media (max-width: 720px) { .cc-controls { grid-template-columns: 1fr; } }
-			.cc-label { font-size: 12px; font-weight: 600; color: oklch(0.42 0.016 265); display: block; margin-bottom: 8px; }
-			.cc-selected-note { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: oklch(0.55 0.014 265); float: right; }
+			.cc-label { font-size: 12px; font-weight: 600; color: var(--text-color); display: block; margin-bottom: 8px; }
+			.cc-selected-note { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); float: right; }
 			.cc-selected-note a { cursor: pointer; }
 			.cc-picker-box { position: relative; }
-			.cc-picker-input-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 40px; padding: 6px 8px; box-sizing: border-box; border: 1px solid oklch(0.89 0.008 265); border-radius: 8px; background: oklch(0.99 0.003 265); }
-			.cc-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 8px; border-radius: 6px; background: #fff; border: 1px solid oklch(0.9 0.008 265); font-size: 13px; font-weight: 500; }
+			.cc-picker-input-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 40px; padding: 6px 8px; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); }
+			.cc-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 8px; border-radius: 6px; background: var(--card-bg); border: 1px solid var(--border-color); font-size: 13px; font-weight: 500; }
 			.cc-chip-dot { width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
-			.cc-chip-remove { border: 0; background: oklch(0.96 0.004 265); width: 16px; height: 16px; border-radius: 4px; display: inline-grid; place-items: center; cursor: pointer; color: oklch(0.5 0.014 265); font-size: 12px; line-height: 1; padding: 0; }
+			.cc-chip-remove { border: 0; background: var(--fg-hover-color); width: 16px; height: 16px; border-radius: 4px; display: inline-grid; place-items: center; cursor: pointer; color: var(--text-color); font-size: 12px; line-height: 1; padding: 0; }
 			.cc-search-input { flex: 1 1 140px; min-width: 120px; border: 0; outline: none; background: transparent; font-size: 13.5px; padding: 4px 2px; }
-			.cc-dropdown { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 20; background: #fff; border: 1px solid oklch(0.9 0.008 265); border-radius: 10px; box-shadow: 0 16px 32px -16px rgba(20,20,30,.35); overflow: hidden; }
-			.cc-dropdown-header { padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: oklch(0.6 0.014 265); border-bottom: 1px solid oklch(0.95 0.005 265); }
+			.cc-dropdown { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 20; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; box-shadow: 0 16px 32px -16px rgba(20,20,30,.35); overflow: hidden; }
+			.cc-dropdown-header { padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-light); border-bottom: 1px solid var(--border-color); }
 			.cc-suggestion-list { max-height: 240px; overflow-y: auto; }
-			.cc-suggestion { width: 100%; display: flex; flex-direction: column; gap: 1px; text-align: left; border: 0; background: #fff; padding: 9px 12px; cursor: pointer; border-bottom: 1px solid oklch(0.97 0.004 265); }
-			.cc-suggestion:hover { background: oklch(0.975 0.008 265); }
-			.cc-suggestion-name { font-size: 13.5px; font-weight: 600; color: oklch(0.28 0.016 265); }
-			.cc-suggestion-meta { font-size: 11.5px; color: oklch(0.58 0.014 265); }
-			.cc-empty-msg { padding: 14px 12px; font-size: 13px; color: oklch(0.58 0.014 265); }
-			.cc-date-btn { width: 100%; box-sizing: border-box; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border: 1px solid oklch(0.89 0.008 265); border-radius: 8px; background: oklch(0.99 0.003 265); cursor: pointer; text-align: left; }
-			.cc-date-title { font-size: 13px; font-weight: 600; color: oklch(0.28 0.016 265); }
-			.cc-date-sub { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: oklch(0.58 0.014 265); }
-			.cc-date-panel { position: absolute; top: calc(100% + 6px); right: 0; width: 280px; z-index: 20; background: #fff; border: 1px solid oklch(0.9 0.008 265); border-radius: 10px; box-shadow: 0 16px 32px -16px rgba(20,20,30,.35); padding: 6px; }
-			.cc-preset-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; border: 0; border-radius: 6px; background: #fff; padding: 8px 9px; cursor: pointer; font-size: 13px; font-weight: 500; color: oklch(0.32 0.016 265); text-align: left; }
-			.cc-preset-btn:hover { background: oklch(0.965 0.008 265); }
-			.cc-preset-btn.active { background: oklch(0.955 0.02 265); color: oklch(0.4 0.13 265); }
-			.cc-custom-row { border-top: 1px solid oklch(0.95 0.005 265); margin: 6px 3px 0; padding-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-			.cc-custom-row label { display: flex; flex-direction: column; gap: 4px; font-size: 10.5px; color: oklch(0.52 0.014 265); }
-			.cc-custom-row input { border: 1px solid oklch(0.9 0.008 265); border-radius: 6px; padding: 5px 6px; font-size: 12px; }
+			.cc-suggestion { width: 100%; display: flex; flex-direction: column; gap: 1px; text-align: left; border: 0; background: var(--card-bg); padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+			.cc-suggestion:hover { background: var(--fg-hover-color); }
+			.cc-suggestion-name { font-size: 13.5px; font-weight: 600; color: var(--heading-color); }
+			.cc-suggestion-meta { font-size: 11.5px; color: var(--text-muted); }
+			.cc-empty-msg { padding: 14px 12px; font-size: 13px; color: var(--text-muted); }
+			.cc-date-btn { width: 100%; box-sizing: border-box; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); cursor: pointer; text-align: left; }
+			.cc-date-title { font-size: 13px; font-weight: 600; color: var(--heading-color); }
+			.cc-date-sub { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--text-muted); }
+			.cc-date-panel { position: absolute; top: calc(100% + 6px); right: 0; width: 280px; z-index: 20; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; box-shadow: 0 16px 32px -16px rgba(20,20,30,.35); padding: 6px; }
+			.cc-preset-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; border: 0; border-radius: 6px; background: var(--card-bg); padding: 8px 9px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-color); text-align: left; }
+			.cc-preset-btn:hover { background: var(--fg-hover-color); }
+			.cc-preset-btn.active { background: var(--bg-blue); color: var(--ink-blue-3); }
+			.cc-custom-row { border-top: 1px solid var(--border-color); margin: 6px 3px 0; padding-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+			.cc-custom-row label { display: flex; flex-direction: column; gap: 4px; font-size: 10.5px; color: var(--text-muted); }
+			.cc-custom-row input { border: 1px solid var(--border-color); border-radius: 6px; padding: 5px 6px; font-size: 12px; }
 			.cc-empty-card { padding: 56px 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
 			.cc-empty-bars { display: flex; align-items: flex-end; gap: 6px; height: 54px; }
-			.cc-empty-bars span { width: 14px; border-radius: 3px; background: oklch(0.85 0.05 265); }
-			.cc-quick-add { border: 1px solid oklch(0.9 0.008 265); background: #fff; border-radius: 18px; padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: oklch(0.34 0.016 265); cursor: pointer; }
-			.cc-quick-add:hover { border-color: oklch(0.68 0.1 265); color: oklch(0.45 0.13 265); }
+			.cc-empty-bars span { width: 14px; border-radius: 3px; background: var(--blue-200); }
+			.cc-quick-add { border: 1px solid var(--border-color); background: var(--card-bg); border-radius: 18px; padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: var(--text-color); cursor: pointer; }
+			.cc-quick-add:hover { border-color: var(--ink-blue-2); color: var(--ink-blue-3); }
 			.cc-table-wrap { overflow-x: auto; }
 			.cc-table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 560px; }
-			.cc-table th, .cc-table td { border-bottom: 1px solid oklch(0.96 0.005 265); padding: 12px 16px; vertical-align: top; text-align: left; }
-			.cc-table thead th { position: sticky; top: 0; background: #fff; font-size: 13px; }
-			.cc-table th:first-child, .cc-table td:first-child { position: sticky; left: 0; background: oklch(0.99 0.003 265); min-width: 170px; z-index: 1; }
-			.cc-attr-label { font-size: 12.5px; font-weight: 600; color: oklch(0.4 0.016 265); }
-			.cc-attr-hint { font-size: 10.5px; color: oklch(0.64 0.014 265); display: block; }
-			.cc-col-head-name { font-size: 14px; font-weight: 700; color: oklch(0.24 0.016 265); }
-			.cc-col-head-sub { font-size: 11px; color: oklch(0.58 0.014 265); }
-			.cc-cell-val { font-size: 13.5px; color: oklch(0.3 0.016 265); }
-			.cc-cell-num { font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 500; color: oklch(0.24 0.016 265); display: block; }
-			.cc-cell-sub { font-size: 11px; color: oklch(0.58 0.014 265); display: block; margin-top: 2px; }
+			.cc-table th, .cc-table td { border-bottom: 1px solid var(--border-color); padding: 12px 16px; vertical-align: top; text-align: left; }
+			.cc-table thead th { position: sticky; top: 0; background: var(--card-bg); font-size: 13px; }
+			.cc-table th:first-child, .cc-table td:first-child { position: sticky; left: 0; background: var(--card-bg); min-width: 170px; z-index: 1; }
+			.cc-attr-label { font-size: 12.5px; font-weight: 600; color: var(--text-color); }
+			.cc-attr-hint { font-size: 10.5px; color: var(--text-light); display: block; }
+			.cc-col-head-name { font-size: 14px; font-weight: 700; color: var(--heading-color); }
+			.cc-col-head-sub { font-size: 11px; color: var(--text-muted); }
+			.cc-cell-val { font-size: 13.5px; color: var(--heading-color); }
+			.cc-cell-num { font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 500; color: var(--heading-color); display: block; }
+			.cc-cell-sub { font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px; }
 			.cc-legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
-			.cc-legend-item { display: inline-flex; align-items: center; gap: 7px; border: 1px solid oklch(0.93 0.006 265); background: #fff; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+			.cc-legend-item { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border-color); background: var(--card-bg); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
 			.cc-legend-item.dim { opacity: .4; }
 			.cc-legend-line { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
-			.cc-legend-name { font-size: 12px; font-weight: 600; color: oklch(0.3 0.016 265); }
-			.cc-legend-val { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: oklch(0.55 0.014 265); }
-			.cc-metric-btn { display: flex; align-items: center; gap: 8px; border: 1px solid oklch(0.89 0.008 265); background: oklch(0.99 0.003 265); border-radius: 8px; padding: 7px 10px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: oklch(0.28 0.016 265); }
-			.cc-metric-panel { position: absolute; top: calc(100% + 6px); right: 0; width: 220px; z-index: 20; background: #fff; border: 1px solid oklch(0.9 0.008 265); border-radius: 10px; box-shadow: 0 16px 32px -16px rgba(20,20,30,.35); padding: 6px; }
+			.cc-legend-name { font-size: 12px; font-weight: 600; color: var(--heading-color); }
+			.cc-legend-val { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); }
+			.cc-metric-btn { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border-color); background: var(--card-bg); border-radius: 8px; padding: 7px 10px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--heading-color); }
+			.cc-metric-panel { position: absolute; top: calc(100% + 6px); right: 0; width: 220px; z-index: 20; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; box-shadow: 0 16px 32px -16px rgba(20,20,30,.35); padding: 6px; }
 			.cc-backdrop { position: fixed; inset: 0; z-index: 2; }
 			[hidden] { display: none !important; }
 		</style>
@@ -127,7 +127,7 @@ frappe.pages['competitor-comparison'].on_page_load = function(wrapper) {
 					<div style="position: relative;">
 						<button type="button" id="cc-date-btn" class="cc-date-btn">
 							<span><span id="cc-date-title" class="cc-date-title"></span><br><span id="cc-date-sub" class="cc-date-sub"></span></span>
-							<span style="font-size: 10px; color: oklch(0.6 0.014 265);">▾</span>
+							<span style="font-size: 10px; color: var(--text-light);">▾</span>
 						</button>
 						<div id="cc-date-panel" class="cc-date-panel" hidden></div>
 					</div>
@@ -374,9 +374,9 @@ frappe.pages['competitor-comparison'].on_page_load = function(wrapper) {
 		}
 		page.main.find('#cc-body').html(`
 			<div class="cc-card" style="margin-bottom: 18px;">
-				<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid oklch(0.95 0.005 265);">
+				<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--border-color);">
 					<h2 style="margin: 0; font-size: 15px; font-weight: 700;">Side-by-side comparison</h2>
-					<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: oklch(0.6 0.014 265);">${state.selected.length} columns</span>
+					<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-light);">${state.selected.length} columns</span>
 				</div>
 				<div class="cc-table-wrap"><table class="cc-table"><thead></thead><tbody></tbody></table></div>
 			</div>
@@ -384,11 +384,11 @@ frappe.pages['competitor-comparison'].on_page_load = function(wrapper) {
 				<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
 					<div>
 						<h2 style="margin: 0; font-size: 15px; font-weight: 700;">Trend comparison</h2>
-						<p id="cc-trend-sub" style="margin: 2px 0 0; font-size: 12px; color: oklch(0.56 0.014 265);"></p>
+						<p id="cc-trend-sub" style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);"></p>
 					</div>
 					<div style="position: relative;">
 						<button type="button" id="cc-metric-btn" class="cc-metric-btn">
-							<span style="color: oklch(0.58 0.014 265); font-weight: 500;">Metric</span>
+							<span style="color: var(--text-muted); font-weight: 500;">Metric</span>
 							<span id="cc-metric-label"></span>
 							<span style="font-size: 10px;">▾</span>
 						</button>
@@ -420,14 +420,14 @@ frappe.pages['competitor-comparison'].on_page_load = function(wrapper) {
 		page.main.find('#cc-body').html(`
 			<div class="cc-card cc-empty-card">
 				<div class="cc-empty-bars">
-					<span style="height: 20px; background: oklch(0.91 0.03 265);"></span>
-					<span style="height: 40px; background: oklch(0.82 0.07 265);"></span>
-					<span style="height: 30px; background: oklch(0.88 0.045 265);"></span>
-					<span style="height: 54px; background: oklch(0.62 0.13 265);"></span>
+					<span style="height: 20px; background: var(--bg-blue);"></span>
+					<span style="height: 40px; background: var(--blue-200);"></span>
+					<span style="height: 30px; background: var(--blue-200);"></span>
+					<span style="height: 54px; background: var(--blue-500);"></span>
 				</div>
 				<div>
 					<h2 style="margin: 0 0 6px; font-size: 17px; font-weight: 700;">Pick competitors to compare</h2>
-					<p style="margin: 0; font-size: 13.5px; color: oklch(0.52 0.014 265); max-width: 420px;">
+					<p style="margin: 0; font-size: 13.5px; color: var(--text-muted); max-width: 420px;">
 						Search your tracked competitors above and add as many as you like. We'll build a side-by-side profile and plot their metrics across your date range.
 					</p>
 				</div>

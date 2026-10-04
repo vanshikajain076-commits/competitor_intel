@@ -35,7 +35,7 @@ For **backgrounds, borders and text** always use a variable, never hex, `rgb()`,
 | Body text | `--text-color` |
 | Secondary text / labels | `--text-muted` |
 | Tertiary text / placeholders / timestamps | `--text-light` |
-| Link / active tab | `--ink-blue-link` (`--ink-blue-3` for non-link accents) |
+| Link / active tab | `--ink-blue-3` |
 | Positive text / negative text | `--ink-green-3` / `--ink-red-4` |
 | Primary (inverted) fill, e.g. active chip | `--btn-primary` with `--fg-color` text |
 
@@ -99,7 +99,7 @@ Allowed exceptions (these are data, not theme chrome):
 - **Badge**: pill, 11–12px medium, paired bg/text tokens from the table above,
   leading 6px dot.
 - **Tabs**: transparent buttons, `--text-muted`; active tab gets
-  `--ink-blue-link` text and a 2px bottom border in the same colour.
+  `--ink-blue-3` text and a 2px bottom border in the same colour.
 - **Table**: header on `--subtle-accent` with muted 11.5px medium text; rows
   divided by `--border-color`; hover `--fg-hover-color`.
 - **Empty state**: centred, muted icon in a `--control-bg` circle, medium
