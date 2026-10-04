@@ -1,7 +1,0 @@
-{
-  "extends": "frappe-ui/tsconfig.base.json",
-  "compilerOptions": {
-    "types": ["vite/client"]
-  },
-  "include": ["src/**/*.ts", "src/**/*.vue"]
-}

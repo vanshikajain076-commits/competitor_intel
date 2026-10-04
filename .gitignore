@@ -5,3 +5,5 @@
 tags
 node_modules
 __pycache__
+# Local design reference (not tracked)
+docs/design/frappe-ui-reference/
