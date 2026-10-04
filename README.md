@@ -19,9 +19,10 @@ them. It builds on ERPNext sales data:
 
 - **ERPNext is required** (declared via `required_apps`; Quotation and
   Opportunity are extended with custom fields and hooks).
-- Frappe / ERPNext **version 16**. Tested on Frappe 16.31.0 and
-  ERPNext 16.32.3 (`version-16`) with Python 3.12. Other versions are untested.
-- Python 3.10+.
+- Frappe / ERPNext **version 16** only. Tested on Frappe 16.31.0 and
+  ERPNext 16.32.3 (`version-16`). Other versions are untested.
+- Python 3.14 and Node 24 or newer (Frappe v16's own requirements; tested on
+  Python 3.14.6, Node 24.19.0).
 
 ## Installation
 
