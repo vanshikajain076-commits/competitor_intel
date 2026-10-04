@@ -1,7 +1,7 @@
 app_name = "competitor_intel"
 app_title = "Competitor Intel"
 app_publisher = "SMM"
-app_description = "acker dashboard"
+app_description = "Competitor tracking and loss intelligence for ERPNext: log competitors, see why Quotations and Opportunities are lost to them, compare traffic metrics, and generate AI insights."
 app_email = "vanshikajain076@gmail.com"
 app_license = "mit"
 
@@ -16,7 +16,7 @@ fixtures = [
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["erpnext"]
 
 # Each item in the list will be shown as an app in the apps page
 add_to_apps_screen = [
