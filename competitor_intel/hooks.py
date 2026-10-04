@@ -10,7 +10,10 @@ app_license = "mit"
 
 fixtures = [
 	{"doctype": "Custom Field", "filters": [["dt", "in", ["Competitor", "Quotation", "Opportunity"]]]},
-	{"doctype": "Property Setter", "filters": [["doc_type", "=", "Competitor"], ["field_name", "=", "website"]]},
+	{
+		"doctype": "Property Setter",
+		"filters": [["doc_type", "=", "Competitor"], ["field_name", "=", "website"]],
+	},
 ]
 
 # Apps
@@ -145,21 +148,15 @@ doctype_list_js = {"Competitor Metric": "public/js/competitor_metric_list.js"}
 # Hook on document methods and events
 
 doc_events = {
-	"Quotation": {
-		"on_change": "competitor_intel.utils.stamp_lost_on"
-	},
-	"Opportunity": {
-		"on_change": "competitor_intel.utils.stamp_lost_on"
-	}
+	"Quotation": {"on_change": "competitor_intel.utils.stamp_lost_on"},
+	"Opportunity": {"on_change": "competitor_intel.utils.stamp_lost_on"},
 }
 
 # Scheduled Tasks
 # ---------------
 
 scheduler_events = {
-	"monthly": [
-		"competitor_intel.loss_intelligence.generate_monthly_loss_snapshots"
-	],
+	"monthly": ["competitor_intel.loss_intelligence.generate_monthly_loss_snapshots"],
 }
 
 # Testing
@@ -177,9 +174,7 @@ scheduler_events = {
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
-override_doctype_dashboards = {
-	"Competitor": "competitor_intel.competitor_dashboard.get_data"
-}
+override_doctype_dashboards = {"Competitor": "competitor_intel.competitor_dashboard.get_data"}
 
 # exempt linked doctypes from being automatically cancelled
 #
@@ -242,4 +237,3 @@ override_doctype_dashboards = {
 # ------------
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
-

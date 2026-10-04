@@ -17,11 +17,11 @@ MOCK_API_BASE = "http://localhost:5001"
 GROQ_MODEL = "openai/gpt-oss-120b"
 
 METRIC_MAP = {
-    "monthly_visits": "Monthly Visits",
-    "page_views": "Page Views",
-    "bounce_rate": "Bounce Rate",
-    "avg_duration_seconds": "Avg Duration (seconds)",
-    "pages_per_visit": "Pages per Visit",
+	"monthly_visits": "Monthly Visits",
+	"page_views": "Page Views",
+	"bounce_rate": "Bounce Rate",
+	"avg_duration_seconds": "Avg Duration (seconds)",
+	"pages_per_visit": "Pages per Visit",
 }
 
 
@@ -71,9 +71,10 @@ def seed_demo_history(competitor, days=14):
 	created = []
 	for i in range(days, -1, -1):
 		day = add_days(today(), -i)
-		if frappe.db.exists("Competitor Metric", {
-			"competitor": competitor, "metric_type": "Monthly Visits", "metric_date": day
-		}):
+		if frappe.db.exists(
+			"Competitor Metric",
+			{"competitor": competitor, "metric_type": "Monthly Visits", "metric_date": day},
+		):
 			continue
 		noise = random.uniform(-0.03, 0.03)
 		day_value = int(base_visits * (1 + trend * (days - i)) * (1 + noise))
@@ -293,17 +294,19 @@ def get_overview_data():
 		)
 		q = qual[0] if qual else {}
 
-		result.append({
-			"competitor_name": c.competitor_name,
-			"website": c.website,
-			"industry": c.industry,
-			"is_active": bool(c.is_active),
-			"logo": c.logo,
-			"metrics": {mt: latest.get(mt) for mt in metric_types},
-			"market_position": q.get("market_position"),
-			"key_strength": q.get("key_strength"),
-			"key_weakness": q.get("key_weakness"),
-		})
+		result.append(
+			{
+				"competitor_name": c.competitor_name,
+				"website": c.website,
+				"industry": c.industry,
+				"is_active": bool(c.is_active),
+				"logo": c.logo,
+				"metrics": {mt: latest.get(mt) for mt in metric_types},
+				"market_position": q.get("market_position"),
+				"key_strength": q.get("key_strength"),
+				"key_weakness": q.get("key_weakness"),
+			}
+		)
 	return {
 		"metric_types": metric_types,
 		"rows": result,
@@ -338,7 +341,9 @@ def get_comparison_trend(metric_type="Monthly Visits", competitors=None, period_
 	competitor_filters = {}
 	if competitors:
 		competitor_filters["name"] = ["in", _parse_list_arg(competitors)]
-	all_competitors = frappe.get_all("Competitor", filters=competitor_filters, fields=["name", "competitor_name"])
+	all_competitors = frappe.get_all(
+		"Competitor", filters=competitor_filters, fields=["name", "competitor_name"]
+	)
 
 	series = {}
 	all_dates = set()
@@ -369,11 +374,13 @@ def get_comparison_trend(metric_type="Monthly Visits", competitors=None, period_
 		# chart layer can tell a genuine single-day measurement apart from a mostly-
 		# empty series — otherwise a competitor with exactly one real data point
 		# reads as a misleading line rising from an implied zero.
-		datasets.append({
-			"name": name,
-			"values": [values_by_date.get(d, 0) for d in sorted_dates],
-			"real_flags": [d in values_by_date for d in sorted_dates],
-		})
+		datasets.append(
+			{
+				"name": name,
+				"values": [values_by_date.get(d, 0) for d in sorted_dates],
+				"real_flags": [d in values_by_date for d in sorted_dates],
+			}
+		)
 	return {"labels": sorted_dates, "datasets": datasets}
 
 
@@ -433,8 +440,12 @@ def get_comparison_table(competitors, period_start, period_end):
 			"Competitor Qualitative",
 			filters={"competitor": name},
 			fields=[
-				"market_position", "pricing_model", "target_audience",
-				"key_strength", "key_weakness", "differentiation",
+				"market_position",
+				"pricing_model",
+				"target_audience",
+				"key_strength",
+				"key_weakness",
+				"differentiation",
 			],
 			order_by="review_date desc",
 			limit_page_length=1,
@@ -461,25 +472,29 @@ def get_comparison_table(competitors, period_start, period_end):
 		)
 
 		loss = by_competitor.get(name) or {
-			"opportunity_count": 0, "opportunity_value": 0,
-			"quotation_count": 0, "quotation_value": 0,
+			"opportunity_count": 0,
+			"opportunity_value": 0,
+			"quotation_count": 0,
+			"quotation_value": 0,
 		}
 
-		result.append({
-			"competitor_name": c.competitor_name,
-			"industry": c.industry,
-			"website": c.website,
-			"market_position": qual.get("market_position"),
-			"pricing_model": qual.get("pricing_model"),
-			"target_audience": qual.get("target_audience"),
-			"key_strength": qual.get("key_strength"),
-			"key_weakness": qual.get("key_weakness"),
-			"differentiation": qual.get("differentiation"),
-			"monthly_visits": current_visits[0].value if current_visits else None,
-			"monthly_visits_prior": prior_visits[0].value if prior_visits else None,
-			"deals_lost": loss["quotation_count"] + loss["opportunity_count"],
-			"pipeline_lost": loss["quotation_value"] + loss["opportunity_value"],
-		})
+		result.append(
+			{
+				"competitor_name": c.competitor_name,
+				"industry": c.industry,
+				"website": c.website,
+				"market_position": qual.get("market_position"),
+				"pricing_model": qual.get("pricing_model"),
+				"target_audience": qual.get("target_audience"),
+				"key_strength": qual.get("key_strength"),
+				"key_weakness": qual.get("key_weakness"),
+				"differentiation": qual.get("differentiation"),
+				"monthly_visits": current_visits[0].value if current_visits else None,
+				"monthly_visits_prior": prior_visits[0].value if prior_visits else None,
+				"deals_lost": loss["quotation_count"] + loss["opportunity_count"],
+				"pipeline_lost": loss["quotation_value"] + loss["opportunity_value"],
+			}
+		)
 
 	return result
 
@@ -555,8 +570,7 @@ def get_top_competitors_by_losses(period_start, period_end):
 	by_competitor, _ = collect_loss_data(period_start, period_end)
 
 	totals = {
-		name: data["quotation_count"] + data["opportunity_count"]
-		for name, data in by_competitor.items()
+		name: data["quotation_count"] + data["opportunity_count"] for name, data in by_competitor.items()
 	}
 	ranked = sorted(
 		((name, total) for name, total in totals.items() if total > 0),
@@ -627,78 +641,81 @@ def get_last_snapshot_generated_on(competitor=None):
 
 @frappe.whitelist()
 def get_competitor_lifetime_stats(competitor):
-    """All-time quick stats + recent activity for the Competitor Detail page header.
+	"""All-time quick stats + recent activity for the Competitor Detail page header.
 
-    Unlike collect_loss_data() (bounded to one [period_start, period_end] window and always
-    loading full docs to unpack per-deal `lost_reasons`), this only needs per-record totals,
-    the latest loss date, and a short activity feed for one competitor -- so it queries
-    Quotation/Opportunity directly through the shared "Competitor Detail" Table MultiSelect
-    child doctype instead of walking every lost deal company-wide.
-    """
-    quotations = frappe.get_all(
-        "Quotation",
-        filters=[
-            ["Competitor Detail", "competitor", "=", competitor],
-            ["Quotation", "status", "=", "Lost"],
-        ],
-        fields=["name", "customer_name", "lost_on", "grand_total"],
-        order_by="lost_on desc",
-    )
-    opportunities = frappe.get_all(
-        "Opportunity",
-        filters=[
-            ["Competitor Detail", "competitor", "=", competitor],
-            ["Opportunity", "status", "=", "Lost"],
-        ],
-        fields=["name", "title", "lost_on", "opportunity_amount"],
-        order_by="lost_on desc",
-    )
+	Unlike collect_loss_data() (bounded to one [period_start, period_end] window and always
+	loading full docs to unpack per-deal `lost_reasons`), this only needs per-record totals,
+	the latest loss date, and a short activity feed for one competitor -- so it queries
+	Quotation/Opportunity directly through the shared "Competitor Detail" Table MultiSelect
+	child doctype instead of walking every lost deal company-wide.
+	"""
+	quotations = frappe.get_all(
+		"Quotation",
+		filters=[
+			["Competitor Detail", "competitor", "=", competitor],
+			["Quotation", "status", "=", "Lost"],
+		],
+		fields=["name", "customer_name", "lost_on", "grand_total"],
+		order_by="lost_on desc",
+	)
+	opportunities = frappe.get_all(
+		"Opportunity",
+		filters=[
+			["Competitor Detail", "competitor", "=", competitor],
+			["Opportunity", "status", "=", "Lost"],
+		],
+		fields=["name", "title", "lost_on", "opportunity_amount"],
+		order_by="lost_on desc",
+	)
 
-    activity = [
-        {
-            "type": "Quotation",
-            "label": q.customer_name or q.name,
-            "date": str(q.lost_on) if q.lost_on else None,
-            "value": q.grand_total or 0,
-        }
-        for q in quotations
-    ] + [
-        {
-            "type": "Opportunity",
-            "label": o.title or o.name,
-            "date": str(o.lost_on) if o.lost_on else None,
-            "value": o.opportunity_amount or 0,
-        }
-        for o in opportunities
-    ]
+	activity = [
+		{
+			"type": "Quotation",
+			"label": q.customer_name or q.name,
+			"date": str(q.lost_on) if q.lost_on else None,
+			"value": q.grand_total or 0,
+		}
+		for q in quotations
+	] + [
+		{
+			"type": "Opportunity",
+			"label": o.title or o.name,
+			"date": str(o.lost_on) if o.lost_on else None,
+			"value": o.opportunity_amount or 0,
+		}
+		for o in opportunities
+	]
 
-    latest_note = frappe.get_all(
-        "Competitor Qualitative",
-        filters={"competitor": competitor},
-        fields=["modified"],
-        order_by="modified desc",
-        limit_page_length=1,
-    )
-    if latest_note and latest_note[0].modified:
-        activity.append({
-            "type": "Note",
-            "label": "Qualitative note updated",
-            "date": str(latest_note[0].modified.date()),
-            "value": None,
-        })
+	latest_note = frappe.get_all(
+		"Competitor Qualitative",
+		filters={"competitor": competitor},
+		fields=["modified"],
+		order_by="modified desc",
+		limit_page_length=1,
+	)
+	if latest_note and latest_note[0].modified:
+		activity.append(
+			{
+				"type": "Note",
+				"label": "Qualitative note updated",
+				"date": str(latest_note[0].modified.date()),
+				"value": None,
+			}
+		)
 
-    activity = [row for row in activity if row["date"]]
-    activity.sort(key=lambda row: row["date"], reverse=True)
+	activity = [row for row in activity if row["date"]]
+	activity.sort(key=lambda row: row["date"], reverse=True)
 
-    loss_dates = [row["date"] for row in activity if row["type"] != "Note"]
+	loss_dates = [row["date"] for row in activity if row["type"] != "Note"]
 
-    return {
-        "opportunity_count": len(opportunities),
-        "quotation_count": len(quotations),
-        "total_value_lost": sum(q.grand_total or 0 for q in quotations) + sum(o.opportunity_amount or 0 for o in opportunities),
-        "last_loss_date": max(loss_dates) if loss_dates else None,
-        "recent_activity": activity[:6],
-    }
+	return {
+		"opportunity_count": len(opportunities),
+		"quotation_count": len(quotations),
+		"total_value_lost": sum(q.grand_total or 0 for q in quotations)
+		+ sum(o.opportunity_amount or 0 for o in opportunities),
+		"last_loss_date": max(loss_dates) if loss_dates else None,
+		"recent_activity": activity[:6],
+	}
 
 
 THREAT_LEVEL_OPTIONS = ("High", "Medium", "Low")
@@ -730,11 +747,16 @@ def get_ai_insights(competitor):
 		"AI Insight",
 		filters={"competitor": competitor},
 		fields=[
-			"name", "generated_on", "threat_level", "threat_explanation",
-			"market_gap_opportunities", "recommended_positioning", "data_snapshot"
+			"name",
+			"generated_on",
+			"threat_level",
+			"threat_explanation",
+			"market_gap_opportunities",
+			"recommended_positioning",
+			"data_snapshot",
 		],
 		order_by="generated_on desc, creation desc",
-		limit_page_length=0
+		limit_page_length=0,
 	)
 
 
@@ -759,12 +781,23 @@ def generate_ai_insights(competitor):
 	qual_rows = frappe.get_all(
 		"Competitor Qualitative",
 		filters={"competitor": competitor},
-		fields=["market_position", "pricing_model", "target_audience", "key_strength", "key_weakness", "differentiation"],
+		fields=[
+			"market_position",
+			"pricing_model",
+			"target_audience",
+			"key_strength",
+			"key_weakness",
+			"differentiation",
+		],
 		order_by="review_date desc",
 		limit_page_length=1,
 	)
 	# Several qualitative fields are Text Editor (HTML) -- send plain text to the model
-	qual = {k: strip_html(v).strip() if isinstance(v, str) else v for k, v in qual_rows[0].items()} if qual_rows else {}
+	qual = (
+		{k: strip_html(v).strip() if isinstance(v, str) else v for k, v in qual_rows[0].items()}
+		if qual_rows
+		else {}
+	)
 
 	if not latest_metrics and not qual:
 		frappe.throw("No metrics or qualitative notes found for this competitor yet.")
@@ -793,16 +826,9 @@ Respond with ONLY a valid JSON object (no markdown, no code fences, no extra tex
 
 	response = requests.post(
 		"https://api.groq.com/openai/v1/chat/completions",
-		headers={
-			"Authorization": f"Bearer {frappe.conf.groq_api_key}",
-			"Content-Type": "application/json"
-		},
-		json={
-			"model": GROQ_MODEL,
-			"messages": [{"role": "user", "content": prompt}],
-			"temperature": 0.4
-		},
-		timeout=30
+		headers={"Authorization": f"Bearer {frappe.conf.groq_api_key}", "Content-Type": "application/json"},
+		json={"model": GROQ_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": 0.4},
+		timeout=30,
 	)
 
 	if response.status_code == 404:
@@ -813,7 +839,7 @@ Respond with ONLY a valid JSON object (no markdown, no code fences, no extra tex
 
 		if error_code == "model_not_found":
 			frappe.throw(
-				f"Groq model \"{GROQ_MODEL}\" isn't available to this API key (404 model_not_found). "
+				f'Groq model "{GROQ_MODEL}" isn\'t available to this API key (404 model_not_found). '
 				"Groq's model lineup changes over time — models get deprecated or moved behind higher "
 				"plan tiers — so this hardcoded name can go stale again. Check "
 				"https://console.groq.com/docs/models (or GET /v1/models with your key) for what's "

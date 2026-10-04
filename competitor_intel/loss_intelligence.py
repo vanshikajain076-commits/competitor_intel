@@ -78,7 +78,12 @@ def _collect_opportunities(period_start, period_end, by_competitor, by_reason):
 			("Opportunity Lost Reason", row.lost_reason) for row in doc.lost_reasons if row.lost_reason
 		]
 		_apply(
-			by_competitor, by_reason, competitor_names, reason_keys, "opportunity", doc.opportunity_amount or 0
+			by_competitor,
+			by_reason,
+			competitor_names,
+			reason_keys,
+			"opportunity",
+			doc.opportunity_amount or 0,
 		)
 
 
@@ -146,9 +151,7 @@ def generate_monthly_loss_snapshots():
 
 	for competitor in frappe.get_all("Competitor", filters={"is_active": 1}, pluck="name"):
 		try:
-			_upsert_competitor_snapshot(
-				competitor, period_start, period_end, by_competitor.get(competitor)
-			)
+			_upsert_competitor_snapshot(competitor, period_start, period_end, by_competitor.get(competitor))
 		except Exception:
 			failures.append(f"Competitor Loss Snapshot: {competitor}")
 			frappe.log_error(
@@ -190,9 +193,15 @@ def _notify_snapshot_failures(failures, period_start, period_end):
 	try:
 		users = frappe.get_all(
 			"User",
-			filters={"enabled": 1, "name": ["in", frappe.get_all(
-				"Has Role", filters={"role": "System Manager", "parenttype": "User"}, pluck="parent"
-			)]},
+			filters={
+				"enabled": 1,
+				"name": [
+					"in",
+					frappe.get_all(
+						"Has Role", filters={"role": "System Manager", "parenttype": "User"}, pluck="parent"
+					),
+				],
+			},
 			pluck="name",
 		)
 
@@ -204,26 +213,30 @@ def _notify_snapshot_failures(failures, period_start, period_end):
 		details = "".join(f"<li>{frappe.utils.escape_html(f)}</li>" for f in shown)
 		if len(failures) > len(shown):
 			details += f"<li>...and {len(failures) - len(shown)} more</li>"
-		body = f"{summary}<ul>{details}</ul>See Error Log (titles ending \"({period_start} - {period_end})\") for tracebacks."
+		body = f'{summary}<ul>{details}</ul>See Error Log (titles ending "({period_start} - {period_end})") for tracebacks.'
 
 		for user in users:
-			todo = frappe.get_doc({
-				"doctype": "ToDo",
-				"allocated_to": user,
-				"description": body,
-				"priority": "High",
-				"status": "Open",
-			}).insert(ignore_permissions=True)
+			todo = frappe.get_doc(
+				{
+					"doctype": "ToDo",
+					"allocated_to": user,
+					"description": body,
+					"priority": "High",
+					"status": "Open",
+				}
+			).insert(ignore_permissions=True)
 
-			frappe.get_doc({
-				"doctype": "Notification Log",
-				"for_user": user,
-				"type": "Alert",
-				"subject": summary,
-				"email_content": body,
-				"document_type": "ToDo",
-				"document_name": todo.name,
-			}).insert(ignore_permissions=True)
+			frappe.get_doc(
+				{
+					"doctype": "Notification Log",
+					"for_user": user,
+					"type": "Alert",
+					"subject": summary,
+					"email_content": body,
+					"document_type": "ToDo",
+					"document_name": todo.name,
+				}
+			).insert(ignore_permissions=True)
 
 		frappe.db.commit()
 	except Exception:
