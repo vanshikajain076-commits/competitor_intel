@@ -133,7 +133,7 @@ def fetch_cloudflare_rank(competitor):
 	if bucket is not None:
 		try:
 			bucket_estimate = int(bucket)
-		except (TypeError, ValueError):
+		except TypeError, ValueError:
 			bucket_estimate = None
 
 	if rank is not None:
