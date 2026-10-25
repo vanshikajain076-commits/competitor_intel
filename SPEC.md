@@ -1,7 +1,7 @@
 # Competitor Intel: Product and Engineering Spec (v2)
 
 > Single source of truth. If code and this file disagree, fix one of them in the same PR.
-> Replaces `competitor_intel-product-design-notes_1.md` and `competitor_intel/docs/app-plan.md`.
+> Replaces `competitor_intel/docs/app-plan.md`.
 > Status: draft for owner review. Items marked **VERIFY** must be checked on a real bench before relying on them.
 
 ---
