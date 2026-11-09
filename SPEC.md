@@ -332,3 +332,6 @@ Google Trends is an unofficial scraper and is relative (0 to 100), so it is a tr
 | 2026-10 | Remove mock API and demo seeding | Fake numbers stored as real data mislead users |
 | 2026-10 | Duplicates: prevent, detect, merge | Free-text names split statistics |
 | 2026-10 | Reference UI library stays untracked locally; rules captured in `DESIGN.md` | Keeps repo clean while preserving look and feel |
+| 2026-11 | Hardcoded colors replaced with Frappe CSS variables in the three pages during M0 (pulled forward from M5) | Cleanup commit 488df7c touched the page scripts anyway; doing it once avoids a second pass. M5 keeps the light/dark visual check and Workspace/Number Cards |
+| 2026-11 | `requires-python = ">=3.14,<3.15"`, Node 24 or newer | Verified against installed Frappe v16.52.0 (`pyproject.toml` requires-python `>=3.14,<3.15`, `package.json` engines node `>=24`) and ERPNext 16.53.0 (`>=3.14`). Official v16 migration guide not yet read; re-check it before M6 (open item 2) |
+| 2026-11 | `mock_server/` kept for now, removed in M2 with the mock API | Nothing imports it; only `api.py` calls it over HTTP (`MOCK_API_BASE`, localhost:5001) and README mentions it. Removing it before M2 would break `fetch_traffic_data` and `seed_demo_history` in dev. Awaiting owner confirmation |
